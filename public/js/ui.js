@@ -73,13 +73,26 @@
     return new Promise((resolve) => {
       const form = h('form', { class: 'form', novalidate: true });
       const inputs = {};
+      const pendingFollow = [];
       (o.fields || []).forEach((f) => {
         let input;
         if (f.type === 'textarea') input = h('textarea', { rows: f.rows || 3, placeholder: f.placeholder || '', value: f.value || '' });
         else if (f.type === 'select') {
           input = h('select', {}, (f.options || []).map((op) => h('option', { value: op.value, text: op.label, selected: op.value === f.value })));
         } else if (f.type === 'checkbox') input = h('input', { type: 'checkbox', checked: !!f.value });
-        else if (f.type === 'color') {
+        else if (f.type === 'emoji') {
+          const box = h('div', { class: 'emoji-field' });
+          const inp = h('input', { type: 'text', value: f.value || '', maxlength: 8, placeholder: f.placeholder || 'none', autocomplete: 'off', class: 'emoji-input' });
+          const pick = h('button', { type: 'button', class: 'btn', text: '😀 Choose…', onclick: () => {
+            const r = pick.getBoundingClientRect();
+            HB.emoji.open(r.left, r.bottom + 4, (e) => { inp.value = e; inp.dataset.touched = '1'; });
+          } });
+          inp.addEventListener('input', () => { inp.dataset.touched = '1'; });
+          box.append(inp, pick, h('button', { type: 'button', class: 'btn ghost', text: 'Clear', onclick: () => { inp.value = ''; inp.dataset.touched = '1'; } }));
+          Object.defineProperty(box, 'value', { get: () => inp.value, set: (v) => { inp.value = v; } });
+          box._inner = inp;
+          input = box;
+        } else if (f.type === 'color') {
           input = h('div', { class: 'swatch-row' });
           input.value = f.value || '';
           HB.colors.forEach((c) => {
@@ -91,8 +104,16 @@
           });
         } else input = h('input', { type: f.type || 'text', value: f.value || '', placeholder: f.placeholder || '', maxlength: f.max || null, autocomplete: 'off' });
         inputs[f.name] = input;
+        if (f.follow) pendingFollow.push(f);
         form.append(h('label', { class: 'field' + (f.type === 'checkbox' ? ' inline' : '') }, h('span', { text: f.label }), input,
           f.hint ? h('small', { class: 'muted', text: f.hint }) : null));
+      });
+      // an emoji field can follow another field and suggest an icon from what is typed there
+      pendingFollow.forEach((f) => {
+        const src = inputs[f.follow], emo = inputs[f.name]._inner;
+        const fill = () => { if (!emo.dataset.touched) emo.value = HB.emoji.suggest(src.value) || ''; };
+        src.addEventListener('input', fill);
+        fill();
       });
       const err = h('p', { class: 'form-err' });
       form.append(err);
@@ -185,6 +206,15 @@
     el.style.left = left + 'px'; el.style.top = top + 'px';
   }
 
+  /** Show any element as a floating popover (closes on outside click / Esc like a menu). */
+  ui.popover = function (el, x, y) {
+    ui.closeMenus();
+    el.classList.add('popover');
+    layer().append(el);
+    openMenus.push(el);
+    place(el, x, y);
+  };
+
   ui.menu = function (x, y, items) {
     ui.closeMenus();
     const m = buildMenu(items, 0);
@@ -209,7 +239,7 @@
   document.addEventListener('mousedown', (e) => {
     if (openMenus.length && !openMenus.some((m) => m.contains(e.target))) ui.closeMenus();
   }, true);
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && openMenus.length) { ui.closeMenus(); e.stopPropagation(); } }, true);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && openMenus.length) { ui.closeMenus(); e.stopImmediatePropagation(); } }, true);
   window.addEventListener('blur', () => ui.closeMenus());
   window.addEventListener('resize', () => ui.closeMenus());
 

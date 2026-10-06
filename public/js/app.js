@@ -158,7 +158,13 @@
     },
 
     addMenu(btn) {
-      HB.ui.menuAt(btn, Object.entries(HB.typeInfo).map(([t, i]) => ({ label: i.icon + '  ' + i.label, hint: '', onClick: () => HB.board.addTile(t) })));
+      const items = [];
+      let group = null;
+      Object.entries(HB.typeInfo).sort((a, b) => ['Everyday', 'Study', 'Focus', 'Web', 'Files & media'].indexOf(a[1].group) - ['Everyday', 'Study', 'Focus', 'Web', 'Files & media'].indexOf(b[1].group)).forEach(([t, i]) => {
+        if (i.group !== group) { group = i.group; items.push({ header: group }); }
+        items.push({ label: i.icon + '  ' + i.label, onClick: () => HB.board.addTile(t) });
+      });
+      HB.ui.menuAt(btn, items);
     },
 
     mainMenu(btn) {

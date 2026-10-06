@@ -20,7 +20,7 @@
       HB.bus.on('data', (d) => { if (d.kind === 'sync') this.refreshCount(); });
       this.refreshCount();
     },
-    dragging(on) { if (this.zone) { this.zone.classList.toggle('armed', on); if (!on) this.zone.classList.remove('hot'); } },
+    dragging(on) { document.body.classList.toggle('is-dragging', !!on); if (this.zone) { this.zone.classList.toggle('armed', on); if (!on) this.zone.classList.remove('hot'); } },
     inside(x, y) {
       if (!this.zone || x < 0) return false;
       const r = this.zone.getBoundingClientRect();

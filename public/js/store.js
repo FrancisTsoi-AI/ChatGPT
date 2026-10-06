@@ -1,7 +1,7 @@
 (function () {
   const HB = window.HB;
   const CACHE_KEY = 'hb:cache:v1';
-  const TREE = { scenarios: ['tiles'], tiles: ['links', 'tasks', 'files', 'thoughts'] };
+  const TREE = { scenarios: ['tiles'], tiles: ['links', 'tasks', 'files', 'thoughts', 'entries'] };
   const clone = (v) => (v === undefined ? v : JSON.parse(JSON.stringify(v)));
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -56,7 +56,7 @@
 
   // ---- store -------------------------------------------------------------------------------
   const S = (HB.store = {
-    data: { scenarios: [], tiles: [], links: [], tasks: [], files: [], thoughts: [], settings: {}, limits: {} },
+    data: { scenarios: [], tiles: [], links: [], tasks: [], files: [], thoughts: [], entries: [], settings: {}, limits: {} },
     ready: false, fromCache: false,
     rev: 0, ops: [], chain: Promise.resolve(), timer: null, retryMs: 0,
     status: 'saved', syncing: false, sig: '', removed: {},
@@ -69,6 +69,10 @@
       const rows = this.data[type].filter((r) => r.tile_id === tileId);
       if (type === 'thoughts') return rows.sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : b.id - a.id));
       return rows.sort((a, b) => a.position - b.position || a.id - b.id);
+    },
+    /** Entries of one kind (cards, quotes, ...) in a tile, in position order. */
+    entriesOf(tileId, kind) {
+      return this.data.entries.filter((r) => r.tile_id === tileId && r.kind === kind).sort((a, b) => a.position - b.position || a.id - b.id);
     },
     /** The tile that owns the content: a shared mirror points at another tile (null if that one is gone). */
     contentTile(tile) {
@@ -227,6 +231,25 @@
         });
       }
       return row;
+    },
+
+    /** Create several rows in one request (one undo step). */
+    async createMany(type, list, opt) {
+      if (!list.length) return [];
+      const res = await this._send(list.map((data) => ({ op: 'create', type, data: clone(data) })));
+      const rows = res.map((r) => r.row);
+      rows.forEach((r) => this.data[type].push(r));
+      this._touch();
+      HB.bus.emit('data', { kind: 'create', type });
+      if (!opt || opt.record !== false) {
+        const ids = rows.map((r) => r.id);
+        history.push({
+          label: (opt && opt.label) || 'add',
+          undo: () => { ids.forEach((id) => this.remove(type, id, { record: false })); },
+          redo: () => { ids.forEach((id) => this.restore(type, id)); },
+        });
+      }
+      return rows;
     },
 
     _detach(type, id) {

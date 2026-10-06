@@ -17,6 +17,9 @@
       mq.addEventListener('change', () => { this.mobile = mq.matches; this.rebuild(); });
       this.build();
       this.el.addEventListener('focusout', () => { if (this.needRender) this.reconcile(); });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && this.maxId && !HB.modalCount && !document.querySelector('.menu,.popover')) { e.preventDefault(); this.restoreMax(); }
+      });
     },
 
     build() {
@@ -76,6 +79,7 @@
     },
 
     clear() {
+      if (this.maxId) this.restoreMax();
       this.entries.forEach((en) => HB.runCleanups(en.body));
       this.entries.clear();
       if (this.grid) { this.silent++; this.grid.removeAll(true); this.silent--; } else this.el.replaceChildren();
@@ -135,7 +139,9 @@
       const titleEl = h('span', { class: 'tile-title', title: 'Double-click to rename' });
       const menuBtn = h('button', { class: 'tile-btn', 'aria-label': 'Tile menu', title: 'Tile menu', text: '⋯',
         onclick: (e) => { e.stopPropagation(); HB.ui.menuAt(menuBtn, this.tileMenu(tile.id)); } });
-      const head = h('div', { class: 'tile-head' }, h('span', { class: 'tile-icon', text: info.icon }), titleEl, menuBtn);
+      const maxBtn = h('button', { class: 'tile-btn max-btn', 'aria-label': 'Enlarge tile', title: 'Enlarge / restore (Esc)', text: '⤢',
+        onclick: (e) => { e.stopPropagation(); this.toggleMax(tile.id); } });
+      const head = h('div', { class: 'tile-head' }, h('span', { class: 'tile-icon', text: info.icon }), titleEl, maxBtn, menuBtn);
       const body = h('div', { class: 'tile-body' });
       const content = h('div', { class: (this.mobile ? '' : 'grid-stack-item-content ') + 'tile', dataset: { type: tile.type, color: tile.colour || '', tile: tile.id } }, head, body);
       let item;
@@ -187,6 +193,8 @@
     renderBody(en, tile, force) {
       const sig = HB.tileSig(tile);
       if (!force && sig === en.sig) return;
+      const kdef = HB.tileTypes[tile.type];
+      if (!force && kdef && kdef.keep && kdef.keep(HB.tileCtx(tile))) return; // e.g. a note being typed in
       const body = en.body;
       const active = document.activeElement;
       if (!force && active && body.contains(active) && active.classList.contains('inline-edit')) { this.needRender = true; return; }
@@ -212,7 +220,53 @@
       if (HB.player) HB.player.syncUI();
     },
 
+    /** A tile that just saved its own change says "I am up to date", so it is not redrawn under the user's hands. */
+    markRendered(id) {
+      const en = this.entries.get(id), t = S.get('tiles', id);
+      if (en && t) en.sig = HB.tileSig(t);
+    },
+
+    // -- enlarge / restore -------------------------------------------------------------------
+    maxId: null,
+    toggleMax(id) {
+      if (this.maxId === id) { this.restoreMax(); return; }
+      if (this.maxId) this.restoreMax();
+      const en = this.entries.get(id);
+      if (!en) return;
+      this.maxId = id;
+      en.content.classList.add('max');
+      document.body.classList.add('has-max');
+      const back = h('div', { id: 'max-back', class: 'max-back', onclick: () => this.restoreMax() });
+      document.getElementById('layer').append(back);
+      if (this.grid) { this.grid.enableMove(false); this.grid.enableResize(false); }
+      const btn = HB.$('.max-btn', en.head);
+      if (btn) { btn.textContent = '⤡'; btn.title = 'Restore (Esc)'; }
+      window.dispatchEvent(new Event('resize'));
+    },
+    restoreMax() {
+      const en = this.entries.get(this.maxId);
+      this.maxId = null;
+      const back = document.getElementById('max-back');
+      if (back) back.remove();
+      document.body.classList.remove('has-max');
+      if (this.grid) { this.grid.enableMove(true); this.grid.enableResize(true); }
+      if (en) {
+        en.content.classList.remove('max');
+        const btn = HB.$('.max-btn', en.head);
+        if (btn) { btn.textContent = '⤢'; btn.title = 'Enlarge / restore (Esc)'; }
+      }
+      window.dispatchEvent(new Event('resize'));
+    },
+    /** Grow or shrink a tile by one grid step (keeps its position). */
+    step(id, d) {
+      const t = S.get('tiles', id);
+      if (!t) return;
+      const w = Math.max(1, Math.min(12, t.width + d)), hh = Math.max(1, t.height + d);
+      S.update('tiles', id, { width: w, height: hh }, { label: d > 0 ? 'enlarge tile' : 'shrink tile' });
+    },
+
     removeEntry(id, en) {
+      if (this.maxId === id) this.restoreMax();
       HB.runCleanups(en.body);
       this.entries.delete(id);
       this.silent++;
@@ -234,6 +288,7 @@
       const def = HB.tileTypes[type];
       const info = HB.typeInfo[type];
       const settings = type === 'todo' ? { buckets: HB.defaultBuckets() } : {};
+      if (type === 'search') settings.sel = 'scholar';
       const row = await HB.safeCreate('tiles', Object.assign({
         scenario_id: this.scenarioId, type, x: 0, y: this.nextY(), width: def.w, height: def.h, title: info.label, settings,
       }, extra || {}), 'add tile');
@@ -270,6 +325,8 @@
       const own = def.menu ? def.menu(tile, ctx) : [];
       if (own && own.length) items.push({ sep: true }, ...own);
       items.push({ sep: true });
+      items.push({ label: this.maxId === id ? 'Restore from enlarged' : 'Enlarge to fill the screen', hint: 'Esc', onClick: () => this.toggleMax(id) });
+      items.push({ label: 'Bigger', hint: '+1 step', onClick: () => this.step(id, 1) }, { label: 'Smaller', hint: '−1 step', onClick: () => this.step(id, -1) });
       items.push({ label: 'Size', children: SIZES.map(([n, w, hh]) => ({
         label: n + ' (' + w + '×' + hh + ')',
         onClick: () => S.update('tiles', id, { width: w, height: hh }, { label: 'resize tile' }),

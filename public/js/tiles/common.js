@@ -21,9 +21,14 @@
   HB.tileSig = function (tile) {
     const src = S.contentTile(tile);
     if (!src) return 'missing';
+    const def = HB.tileTypes[tile.type];
+    if (def && def.sig) return JSON.stringify([tile.type, def.sig(HB.tileCtx(tile))]); // a type may narrow what triggers a redraw
     return JSON.stringify([tile.type, src.settings, tile.settings && tile.settings.shared_from,
-      S.itemsOf('links', src.id), S.itemsOf('tasks', src.id), S.itemsOf('files', src.id), S.itemsOf('thoughts', src.id)]);
+      S.itemsOf('links', src.id), S.itemsOf('tasks', src.id), S.itemsOf('files', src.id), S.itemsOf('thoughts', src.id), S.itemsOf('entries', src.id)]);
   };
+
+  /** Create an entry row in the tile that owns the content. */
+  HB.createEntry = (ctx, kind, data) => HB.safeCreate('entries', Object.assign({ tile_id: ctx.id, kind }, data), 'add');
 
   /** Register timers/cleanups on a tile body; they run when the body is rebuilt or the tile removed. */
   HB.onCleanup = (body, fn) => { (body._cleanups = body._cleanups || []).push(fn); };

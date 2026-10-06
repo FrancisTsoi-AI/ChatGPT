@@ -38,7 +38,7 @@
     if (!isHeader) {
       fields.push({ name: 'url', label: 'URL', value: l.url, placeholder: 'https://…',
         validate: (v) => (v && !HB.normUrl(v) ? 'Only http(s), mailto and tel links are allowed' : '') });
-      fields.push({ name: 'icon', label: 'Icon (emoji, optional)', value: l.icon, max: 8 });
+      fields.push({ name: 'icon', label: 'Icon', type: 'emoji', value: l.icon, follow: 'name', placeholder: 'auto' });
     }
     fields.push({ name: 'colour', label: 'Colour label', type: 'color', value: l.colour });
     if (!isHeader) fields.push({ name: 'tags', label: 'Tags', value: l.tags, placeholder: 'comma, separated' });
@@ -52,6 +52,13 @@
   function menu(l, ctx) {
     const items = [{ label: 'Edit…', onClick: () => edit(l) }];
     if (l.kind !== 'header') items.push({ label: 'Open in new tab', onClick: () => { const u = HB.normUrl(l.url); if (u) window.open(u, '_blank', 'noopener'); } });
+    if (l.kind !== 'header') {
+      items.push({ label: 'Choose icon…', onClick: () => {
+        const el = document.querySelector('.link-card[data-id="' + l.id + '"]');
+        const r = el ? el.getBoundingClientRect() : { left: innerWidth / 2 - 150, bottom: 200 };
+        HB.emoji.open(r.left, r.bottom + 4, (e) => S.update('links', l.id, { icon: e }, { label: 'icon' }));
+      } });
+    }
     items.push({ header: 'Colour' }, { swatches: { value: l.colour, onPick: (c) => S.update('links', l.id, { colour: c }, { label: 'colour' }) } });
     const to = HB.moveTargets('links', l, ['toolbox']);
     if (to.length) items.push({ label: 'Move to tile', children: to });
@@ -64,7 +71,8 @@
     if (text.includes('|')) { [name, url] = text.split('|').map((s) => s.trim()); } else url = text;
     const norm = HB.normUrl(url);
     if (!norm) { HB.ui.toast('Enter a web address, or "Name | address"', { type: 'error' }); return; }
-    await HB.safeCreate('links', { tile_id: ctx.id, kind: 'link', name: name || host(norm), url: norm }, 'add link');
+    const label = name || host(norm);
+    await HB.safeCreate('links', { tile_id: ctx.id, kind: 'link', name: label, url: norm, icon: HB.emoji.suggest(label + ' ' + host(norm)) }, 'add link');
   }
 
   HB.registerTile('toolbox', {
@@ -91,9 +99,9 @@
           const v = await HB.ui.form({ title: 'New link', fields: [
             { name: 'name', label: 'Name' },
             { name: 'url', label: 'URL', placeholder: 'https://…', required: true, validate: (x) => (HB.normUrl(x) ? '' : 'Enter a valid web address') },
-            { name: 'icon', label: 'Icon (emoji, optional)', max: 8 },
+            { name: 'icon', label: 'Icon', type: 'emoji', follow: 'name', placeholder: 'auto' },
           ] });
-          if (v) HB.safeCreate('links', { tile_id: ctx.id, kind: 'link', name: v.name || host(HB.normUrl(v.url)), url: HB.normUrl(v.url), icon: v.icon }, 'add link');
+          if (v) HB.safeCreate('links', { tile_id: ctx.id, kind: 'link', name: v.name || host(HB.normUrl(v.url)), url: HB.normUrl(v.url), icon: v.icon || HB.emoji.suggest((v.name || '') + ' ' + host(HB.normUrl(v.url))) }, 'add link');
         } },
       ];
     },
