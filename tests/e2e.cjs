@@ -313,7 +313,7 @@ const tileByType = (page, type, n = 0) => page.locator(`.tile[data-type="${type}
   await page.keyboard.press('Escape');
 
   section('shared tile across scenarios');
-  await page.locator('.tile[data-type="todo"] .tile-btn').first().click();
+  await page.locator('.tile[data-type="todo"] .tile-head button[aria-label="Tile menu"]').first().click();
   await page.click('.menu-item:has-text("Also show in")');
   await page.locator('.menu.sub .menu-item:has-text("PhD")').click();
   await settle(page);

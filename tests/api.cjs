@@ -145,6 +145,60 @@ const resetLimit = () => fs.readdirSync(path.join(STORAGE, 'ratelimit')).filter(
   r = await a.batch([{ op: 'purge', type: 'tiles', id: ft }]);
   ok(sql(`SELECT COUNT(*) FROM files WHERE tile_id=${ft}`) === '0' && !fs.existsSync(path.join(STORAGE, 'files', stored2)), 'purging a tile cascades to its files on disk');
 
+  console.log('\n# new tile data rules');
+  const mk = async (type) => (await a.batch([{ op: 'create', type: 'tiles', data: { scenario_id: sid, type, x: 0, y: 90, width: 3, height: 3 } }])).json.results[0].id;
+  const fcT = await mk('flashcards'), quT = await mk('quotes'), skT = await mk('sketch'), flT = await mk('files');
+  r = await a.batch([{ op: 'create', type: 'entries', data: { tile_id: fcT, kind: 'card', a: 'Q', b: 'A', due_at: '2026-10-07T10:00:00Z', data: { ivl: 1, ease: 2.5 } } }]);
+  ok(r.status === 200 && r.json.results[0].row.data.ivl === 1 && r.json.results[0].row.due_at === '2026-10-07T10:00:00Z', 'a card is stored with its schedule ' + JSON.stringify(r.json).slice(0, 300));
+  const cardId = r.json.results[0].id;
+  r = await a.batch([{ op: 'create', type: 'entries', data: { tile_id: quT, kind: 'card', a: 'x' } }]);
+  ok(r.status === 400, 'a card cannot be put in a quotes tile');
+  r = await a.batch([{ op: 'create', type: 'entries', data: { tile_id: fcT, kind: 'nonsense', a: 'x' } }]);
+  ok(r.status === 400, 'an unknown entry kind is refused');
+  r = await a.batch([{ op: 'update', type: 'entries', id: cardId, data: { kind: 'quote', tile_id: quT } }]);
+  ok(r.status === 400, 'an entry cannot be moved into a tile of the wrong type (kind cannot change either)');
+  r = await a.batch([{ op: 'create', type: 'entries', data: { tile_id: fcT, kind: 'card', a: 'x', day: '2026-02-30' } }]);
+  ok(r.status === 400, 'an impossible date is refused');
+  r = await a.batch([{ op: 'create', type: 'entries', data: { tile_id: fcT, kind: 'card', a: 'x'.repeat(5000), b: 'y' } }]);
+  ok(r.status === 200, 'long text is accepted (MEDIUMTEXT)');
+  await a.batch([{ op: 'delete', type: 'entries', id: cardId }]);
+  ok((await a.req('trash')).json.items.some((i) => i.type === 'entries' && i.id === cardId && i.label === 'Q'), 'a deleted card shows in the trash by its front text');
+  r = await a.req('search&q=' + encodeURIComponent('xxxxx'));
+  ok(r.json.results.some((x) => x.type === 'entries' && x.kind === 'card'), 'search covers card text');
+
+  console.log('\n# outbound fetch is locked down');
+  const anon2 = new Client();
+  for (const route of ['feed&url=http://example.com/x', 'title&url=http://example.com/x', 'geocode&q=hong', 'weather&lat=1&lon=1']) {
+    r = await anon2.req(route);
+    ok(r.status === 401, route.split('&')[0] + ' needs a login');
+  }
+  const bad = ['http://127.0.0.1/x', 'http://localhost/x', 'http://[::1]/x', 'http://10.0.0.5/x', 'http://192.168.1.1/x', 'http://169.254.169.254/latest/meta-data/', 'http://0.0.0.0/', 'file:///etc/passwd', 'ftp://example.com/x', 'gopher://example.com/', 'http://user:pw@example.com/', 'http://example.com:22/', 'javascript:alert(1)'];
+  for (const u of bad) {
+    r = await a.req('feed&url=' + encodeURIComponent(u));
+    ok(r.status >= 400 && r.status < 500 && !/ssh|root:/i.test(JSON.stringify(r.json)), 'feed refuses ' + u + ' (' + r.status + ': ' + r.json.error + ')');
+  }
+  r = await a.req('title&url=' + encodeURIComponent('http://169.254.169.254/'));
+  ok(r.status === 400, 'the page-title lookup is guarded the same way');
+  r = await a.req('weather&lat=999&lon=0');
+  ok(r.status === 400, 'weather rejects impossible coordinates');
+
+  console.log('\n# sketch uploads');
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+  const up1 = async (tile, blob, name, replace) => { const f = new FormData(); f.append('tile_id', String(tile)); if (replace) f.append('replace_id', String(replace)); f.append('file', blob, name); return a.req('upload', { method: 'POST', form: f }); };
+  r = await up1(skT, new Blob(['not an image']), 'a.txt');
+  ok(r.status === 400 && /PNG/.test(r.json.error), 'a sketch tile only accepts PNG images');
+  r = await up1(skT, new Blob([png]), 'sketch.png');
+  ok(r.status === 200 && r.json.files[0].type === 'image/png', 'a PNG is stored for the sketch');
+  const skFile = r.json.files[0].id;
+  const skStored = sql(`SELECT stored_name FROM files WHERE id=${skFile}`);
+  r = await up1(skT, new Blob([png, Buffer.from([0])]), 'sketch.png', skFile);
+  const skStored2 = sql(`SELECT stored_name FROM files WHERE id=${skFile}`);
+  ok(r.status === 200 && r.json.files[0].id === skFile && skStored2 !== skStored && !fs.existsSync(path.join(STORAGE, 'files', skStored)) && fs.existsSync(path.join(STORAGE, 'files', skStored2)), 'replace_id overwrites the same record and removes the old bytes');
+  r = await up1(flT, new Blob([png]), 'x.png', skFile);
+  ok(r.status === 400, 'replace_id cannot touch another tile\'s file (or a non-sketch tile)');
+  ok(sql(`SELECT COUNT(*) FROM files WHERE tile_id=${skT}`) === '1', 'still exactly one record for the sketch');
+  for (const t of [fcT, quT, skT, flT]) { await a.batch([{ op: 'delete', type: 'tiles', id: t }, { op: 'purge', type: 'tiles', id: t }]); }
+
   console.log('\n# export');
   const ex = await fetch(`${BASE}/export.php?format=json`, { headers: { Cookie: a.cookie } });
   const exj = await ex.json();

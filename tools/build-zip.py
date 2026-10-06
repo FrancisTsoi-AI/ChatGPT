@@ -13,7 +13,7 @@ import zipfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'dist', 'homebase-task.francistsoi.com.zip')
 TOP = 'homebase-upload'
-EMPTY_DIRS = ['files', 'sessions', 'ratelimit', 'tmp']
+EMPTY_DIRS = ['files', 'sessions', 'ratelimit', 'tmp', 'cache']
 
 
 def add_tree(z, src, dst, skip=lambda rel: False):
@@ -44,6 +44,7 @@ def main():
     with zipfile.ZipFile(OUT, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as z:
         add_tree(z, os.path.join(ROOT, 'public'), 'web')
         add_tree(z, os.path.join(ROOT, 'private'), 'homebase-private', skip_private)
+        z.write(os.path.join(ROOT, 'schema.sql'), f'{TOP}/homebase-private/schema.sql')  # lets the gateway upgrade the database itself
         for d in EMPTY_DIRS:  # make sure the writable folders exist even if .gitkeep was missing
             name = f'{TOP}/homebase-private/storage/{d}/.gitkeep'
             if name not in z.namelist():

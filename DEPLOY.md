@@ -10,7 +10,7 @@ The upload zip (`homebase-task.francistsoi.com.zip`) contains:
 homebase-upload/
 ├─ DEPLOY.md              this guide
 ├─ README.md              what Home Base is and how to use it
-├─ schema.sql             the 7 database tables (you run it in phpMyAdmin)
+├─ schema.sql             the database tables (you run it in phpMyAdmin the first time)
 ├─ web/                   → goes into the web folder of task.francistsoi.com
 └─ homebase-private/      → goes NEXT TO that web folder, never inside it
 ```
@@ -47,7 +47,8 @@ Note these in the panel (**Select PHP Version / MultiPHP** and the file manager)
 Step 6 also checks most of them for you:
 
 - [ ] PHP is 8.0 or newer (8.2+ recommended) with extensions `pdo_mysql`, `mbstring`, `json`
-      (and `fileinfo`, `zip` — zip is only needed for the "data + files" backup)
+      (and `fileinfo`; `zip` for the "data + files" backup; `curl` + `simplexml` for the **News feeds**, **Weather**
+      and reading-list **title** features — everything else works without them)
 - [ ] MySQL 5.7+ / MariaDB 10.3+
 - [ ] You can create folders in your home directory, outside the web folder
 
@@ -88,7 +89,7 @@ You do **not** need to raise `upload_max_filesize`: big files are sent in chunks
 1. Open **phpMyAdmin** from the panel and click your database in the left list (it is empty).
 2. **Import** tab → *Choose file* → `homebase-upload/schema.sql` (download it from the file manager
    to your computer first, or paste its text into the **SQL** tab) → **Go**.
-3. You should now see **7 tables**: `scenarios`, `tiles`, `links`, `tasks`, `files`, `thoughts`, `settings`.
+3. You should now see **8 tables**: `scenarios`, `tiles`, `links`, `tasks`, `files`, `thoughts`, `entries`, `settings`.
 
 The script only creates what is missing, so running it again later is safe.
 
@@ -120,6 +121,8 @@ Open **https://task.francistsoi.com** and sign in. Then walk through this "done 
 - [ ] Add a **Files** tile, drop a PDF onto the page, it appears and downloads intact
 - [ ] Sign in on your phone: it stays signed in for 90 days
 - [ ] 5 wrong passphrases pause sign-in for 15 minutes (try it from a private window if you like)
+- [ ] **+ Tile** shows the extra tiles; add a *Flashcards* tile, import two cards, press *Study*; add a *Note* and a *Timer*
+- [ ] (needs cURL) add a *Weather* tile and pick your city; add *News feeds* with e.g. `BBC | https://feeds.bbci.co.uk/news/rss.xml`
 
 ## Step 8 · Make it your start page
 
@@ -144,7 +147,9 @@ The page draws from a local cache first, so it appears immediately and syncs in 
 1. Upload the new `web/` files over the old ones (they carry a version stamp, so browsers refresh).
 2. Upload the new `homebase-private/src/` and `bin/` over the old ones.
 3. **Do not overwrite** `homebase-private/.env` or anything in `homebase-private/storage/`.
-4. Re-run `schema.sql` in phpMyAdmin if the release notes say the schema changed.
+4. **Nothing to do for the database:** when a new version needs a new table, the gateway creates it by itself on first load
+   (it reads `homebase-private/schema.sql`). If your database user lacks CREATE rights you will see a message asking you to
+   import `schema.sql` in phpMyAdmin instead.
 
 ## Settings you can change in `.env`
 
@@ -172,6 +177,10 @@ new hash, paste it in. Existing devices stay signed in until you also delete the
 | Sign-in works, then you are sent back to the login | Cookies blocked, or `storage/sessions` is not writable, or the site is opened over HTTP. Use `https://`. |
 | Sign-in says "Locked" | 5 wrong tries. Wait 15 min, or delete the files in `homebase-private/storage/ratelimit/`. |
 | Uploads stop at a certain size | The progress toast shows the reason. Home Base uses chunks; if your host caps request bodies below ~256 KB, ask the host to raise `post_max_size`. |
+| *Feeds* / *Weather* say "no cURL" or "Could not load that address" | Your host has no `curl` extension, or blocks outgoing connections. Ask the host to enable PHP `curl` (and `simplexml`), or skip those two tiles. Private/LAN addresses are always refused on purpose. |
+| An *Embed* tile is blank | The site forbids being shown inside other pages (Google, GitHub, banks, most news sites). Use *Open in new tab*. YouTube/Spotify/Vimeo links are converted to their embeddable form automatically. |
+| YouTube playlist shows ads | YouTube decides this; it cannot be changed from Home Base. YouTube Premium (signed in, same browser) removes ads. For an ad-free playlist use the *Music player* tile with your own audio files. |
+| Library search says "Set up" | Normal the first time. Search a word on the library's own site, copy the results-page address, paste it into the dialog; Home Base learns the pattern (right-click a site chip to redo it). |
 | Music will not seek / skip | Your host or a proxy strips `Range` requests. Playback still works, seeking does not. |
 | Files tile says "File is missing on disk" | `storage/files/` was moved or restored without its contents. Copy the files back. |
 | Hosting runs **nginx** (no `.htaccess`) | The `.htaccess` rules are ignored. Add equivalents in the site's nginx config: redirect to HTTPS and `deny all` for dotfiles and `_boot.php`. Privacy of your files and secrets does not depend on it, because they live outside the web folder. |
@@ -188,3 +197,8 @@ new hash, paste it in. Existing devices stay signed in until you also delete the
 - **Passphrase** is stored only as a bcrypt-style hash; guessing is slowed and paused after 5 tries.
 - **Database user** has rights on this one database only.
 - Link cards accept only `http(s)`, `mailto` and `tel` addresses.
+- **Outside fetches** (feeds, weather, page titles) run on the server with guards: only http(s) on ports 80/443, every address the
+  name resolves to must be public (no localhost, LAN or cloud-metadata ranges), the connection is pinned to the checked address,
+  redirects are re-checked, size and time are capped, and XML with entity tricks is refused. You must be signed in to use them.
+- **Embedded pages** run in a sandboxed `<iframe>` without referrer, from other websites' own origin, so they cannot read Home Base.
+- Markdown notes, quotes and feed text are rendered as plain DOM text, never as HTML.

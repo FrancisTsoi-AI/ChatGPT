@@ -8,7 +8,10 @@ Full user docs: README.md. Deployment: DEPLOY.md. Roadmap source: `docs/Home_Bas
 ## Status
 All roadmap stages S0–S15+ are built and tested (login, gateway, grid, scenarios, toolbox, to-do,
 thoughts, clock, countdown, files + chunked upload, music, trash + 30-day purge, undo/redo, colours/tags,
-dark mode, search + Ctrl+K, phone layout, backup, shared tiles, previews). Next work = whatever the user asks.
+dark mode, search + Ctrl+K, phone layout, backup, shared tiles, previews).
+**Gadget pack (v2)** also built and tested: flashcards (SM-2 style), quotes (separate source), Markdown note, reading list, timer
+(up/down), time log, habit tracker, stats, embed (YouTube/Spotify/web), search box (libraries, learn-a-pattern), RSS feeds, weather,
+sketch board, emoji picker for toolbox links, enlarge/restore for every tile. Next work = whatever the user asks.
 
 ## Layout
 ```
@@ -20,23 +23,30 @@ public/    → web root of the subdomain (zip: web/)       private/ → outside 
   export.php JSON / zip backup                              src/data.php    table spec, state, batch ops, trash, search
   setup.php  host check + passphrase hash (404 once set)    src/files.php   upload, chunks, serve, zip
   _boot.php  finds the private folder                       src/setup.php   host checks (web + CLI)
-  js/ css/ vendor/ (GridStack 11, SortableJS 1)             bin/            check-host.php, hash-passphrase.php
-schema.sql  7 tables      tests/  api.cjs, e2e.cjs      tools/build-zip.py  → dist/*.zip
+  js/ css/ vendor/ (GridStack 11, SortableJS 1)             src/fetch.php  SSRF-safe outbound fetch, RSS, weather, titles
+                                                            bin/            check-host.php, hash-passphrase.php
+schema.sql  8 tables      tests/  api.cjs, e2e.cjs, gadgets.cjs      tools/build-zip.py  → dist/*.zip
 ```
 Private folder is found via `HB_PRIVATE_DIR`, a `public/.private-path` file, or `../homebase-private`, `../private` (up to 3 levels).
 
 ## Data model (schema.sql)
-`scenarios`, `tiles` (x,y,width,height on a 12-col grid, `settings` JSON text), `links`, `tasks`, `files`, `thoughts`, `settings`.
+`scenarios`, `tiles` (x,y,width,height on a 12-col grid, `settings` JSON text), `links`, `tasks`, `files`, `thoughts`, `entries`, `settings`.
 All but `settings` have id, created_at, updated_at, `deleted_at` (= in trash; purged after `HB_TRASH_DAYS`, checked once a day in `hb_state`).
 Deviations from the roadmap table (deliberate): content rows (links/tasks/files/thoughts) hang off **`tile_id`**, not scenario;
 `files.position` orders files and music playlists; links/tasks/files/thoughts also carry `colour`/`tags`; `links.kind` can be `header`;
 tiles with `settings.shared_from = <tile id>` are **mirror tiles** (same content shown in another scenario); `settings.m_order` = phone order.
-To-do buckets live in the tile's `settings.buckets` (ids urgent/later/brainoff/none + custom); countdown dates in `settings.items`.
+**`entries`** serves the richer tiles (`kind` must match the tile type, see `HB_ENTRY_TILE`): `card` (a=front, b=back, `due_at`, data={ivl,ease,reps,lapses,first}),
+`quote` (a=text, b=source, data={author,year,page,url}), `reading` (a=title, b=url, data={status,author,note}), `habit` (a=habit id, `day`, num 1/0 — toggled, never deleted),
+`time` (a=label, `day`, num=seconds), `note` (a=Markdown, one row per tile). `day` rows older than 400 days stay in the DB but are not sent in `state`.
+The gateway creates missing tables itself from `schema.sql` (`hb_ensure_schema`). Datetime columns MUST go through `hb_row` ISO conversion (`due_at` once leaked a
+zone-less string, which browsers read as local time: wrong by 8 h in Hong Kong). Sketch = one `files` row per `sketch` tile, replaced in place via `upload` + `replace_id`.
+Other tiles keep their data in `tiles.settings`: To-do buckets live in the tile's `settings.buckets` (ids urgent/later/brainoff/none + custom); countdown dates in `settings.items`.
 
 ## API (public/api.php) — all JSON
 * GET `state` full snapshot (also seeds the 3 scenarios on first run, runs the daily purge). GET `trash`, `search&q=`.
 * POST `batch` `{ops:[{op:create|update|delete|restore|purge|setting,...}]}` — one transaction; only whitelisted columns
   (`hb_spec()` in data.php) are writable; `delete` is soft; `purge` only works on trashed rows and unlinks stored files.
+* GET `feed&url=`, `title&url=`, `geocode&q=`, `weather&lat&lon&units` — outbound via `hb_fetch` (public addresses only; `HB_ALLOW_PRIVATE_FETCH=1` is for tests ONLY); results cached in `storage/cache`.
 * POST `upload` (multipart, whole file) and `upload-chunk` (upload_id, offset, total, name, tile_id, file) — ordered chunks, 409 otherwise.
 * Writes need header `X-CSRF-Token`. Method override via `X-HTTP-Method-Override`. 401 = not signed in (client reloads to login).
 * Sessions: PHP file sessions in `private/storage/sessions`, 90-day rolling cookie; 5 wrong tries → 15 min lock per IP (`storage/ratelimit`).
@@ -51,7 +61,10 @@ To-do buckets live in the tile's `settings.buckets` (ids urgent/later/brainoff/n
   use `ctx.id`/`ctx.items()`, not `ctx.tile.id`, for content. Use `HB.sortable` + `HB.listDrop` for draggable lists, `HB.onCleanup` for timers.
 * `ui.js` — toast, modal, form, confirm, context menu, inlineEdit. `trash.js` — trash zone hit-test + dialog. `upload.js` — queue, chunking, drop anywhere.
 * `HB.h(tag, props, ...kids)` builds DOM; `draggable:false` must reach the element (anchors are natively draggable and break Sortable otherwise).
-* To add a tile type: register it (new file in `js/tiles/`, add to `index.php`), add its name to `HB_TILE_TYPES` in data.php and to `HB.typeInfo` in util.js.
+* Optional tile hooks: `sig(ctx)` narrows what triggers a redraw; `keep(ctx)` returns true to skip a redraw (note being typed, sketch with unsaved strokes);
+  `HB.board.markRendered(tileId)` after a tile saved its own change. Row-based tiles use `HB.createEntry`, `S.entriesOf(tile, kind)`, `S.createMany`.
+  Text from users/feeds/notes goes through `HB.md.render` or `textContent` only (never innerHTML). `HB.emoji` = picker + `suggest(text)`.
+* To add a tile type: register it (new file in `js/tiles/`, add to `index.php`), add its name to `HB_TILE_TYPES` in data.php and to `HB.typeInfo` in util.js (with a `group` for the + Tile menu). For row data add a kind to `HB_ENTRY_TILE`.
 
 ## Commands
 ```bash
@@ -59,9 +72,10 @@ mysql homebase < schema.sql                        # local DB (see README "Run i
 (cd public && php -S 127.0.0.1:8080 -d upload_max_filesize=2M -d post_max_size=3M)
 node tests/api.cjs                                 # gateway rules (needs mysql CLI)           — see tests/README.md
 node tests/e2e.cjs                                 # browser e2e (Playwright + Chromium; fresh/empty DB)
+node tests/gadgets.cjs                             # extra tiles; needs the 2nd server + fake feeds (tests/README.md); runs in UTC+8
 python3 tools/build-zip.py                         # dist/homebase-task.francistsoi.com.zip (never includes .env or storage data)
 ```
-Run both tests before committing a behaviour change; rebuild and commit the zip when public/ or private/ changes.
+Run all three tests before committing a behaviour change; rebuild and commit the zip when public/ or private/ changes.
 
 ## Rules of the house
 * Secrets only in `private/.env` (gitignored). Never log or echo them. Files live in `private/storage/files` under random 32-hex names.
