@@ -21,7 +21,7 @@ function hb_security_headers(bool $page = false): void
     if ($page) {
         header("Content-Security-Policy: default-src 'self'; img-src 'self' data: blob:; "
             . "style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; "
-            . "media-src 'self' blob:; frame-src 'self'; object-src 'self'; base-uri 'none'; form-action 'self'");
+            . "media-src 'self' blob:; frame-src 'self' https:; object-src 'self'; base-uri 'none'; form-action 'self'");
     }
 }
 

@@ -33,7 +33,11 @@ function hb_env(): array
 function hb_cfg(string $key, string|int|null $default = null): string|int|null
 {
     $env = hb_env();
-    return array_key_exists($key, $env) && $env[$key] !== '' ? $env[$key] : $default;
+    if (array_key_exists($key, $env) && $env[$key] !== '') {
+        return $env[$key];
+    }
+    $os = getenv($key); // real environment variables also work (handy for tests)
+    return $os !== false && $os !== '' ? $os : $default;
 }
 
 function hb_storage(string $sub = ''): string

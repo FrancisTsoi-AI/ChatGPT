@@ -3,5 +3,6 @@ private/storage/files/*
 private/storage/sessions/*
 private/storage/ratelimit/*
 private/storage/tmp/*
+private/storage/cache/*
 !private/storage/*/.gitkeep
 node_modules/

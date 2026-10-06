@@ -9,8 +9,8 @@ function hb_host_checks(): array
         $rows[] = ['name' => $name, 'ok' => $ok, 'detail' => $detail, 'required' => $required];
     };
     $add('PHP 8.0 or later (8.2+ recommended)', PHP_VERSION_ID >= 80000, PHP_VERSION);
-    foreach (['pdo_mysql' => true, 'mbstring' => true, 'json' => true, 'fileinfo' => false, 'zip' => false] as $ext => $req) {
-        $add("PHP extension $ext", extension_loaded($ext), extension_loaded($ext) ? 'loaded' : ($req ? 'missing' : 'missing (optional' . ($ext === 'zip' ? ': needed for the zip backup)' : ')')), $req);
+    foreach (['pdo_mysql' => true, 'mbstring' => true, 'json' => true, 'fileinfo' => false, 'zip' => false, 'curl' => false, 'simplexml' => false] as $ext => $req) {
+        $add("PHP extension $ext", extension_loaded($ext), extension_loaded($ext) ? 'loaded' : ($req ? 'missing' : 'missing (optional' . ($ext === 'zip' ? ': needed for the zip backup)' : (in_array($ext, ['curl', 'simplexml'], true) ? ': needed for the Feeds, Weather and link-title features)' : ')'))), $req);
     }
     $up = hb_ini_bytes('upload_max_filesize');
     $post = hb_ini_bytes('post_max_size');
@@ -32,7 +32,8 @@ function hb_host_checks(): array
             $have = hb_db()->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
             $need = ['scenarios', 'tiles', 'links', 'tasks', 'files', 'thoughts', 'settings'];
             $miss = array_diff($need, $have);
-            $add('7 tables present (schema.sql)', !$miss, $miss ? 'missing: ' . implode(', ', $miss) : 'all 7 found');
+            $add('7 core tables present (schema.sql)', !$miss, $miss ? 'missing: ' . implode(', ', $miss) : 'all 7 found');
+            $add('Table "entries" (flashcards, notes, habits…)', true, in_array('entries', $have, true) ? 'present' : 'will be created automatically on first sign-in', false);
         } catch (Throwable $e) {
             $add('Database connection', false, $e->getMessage());
         }

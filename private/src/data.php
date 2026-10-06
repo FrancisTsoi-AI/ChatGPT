@@ -5,7 +5,15 @@ declare(strict_types=1);
  * Table spec. Column types: int | str:N | json | dt (nullable datetime) | enum:a,b,c
  * Only these columns can be written by the browser. `parent` = [column, parent table].
  */
-const HB_TILE_TYPES = ['toolbox', 'todo', 'thoughts', 'clock', 'files', 'countdown', 'music'];
+const HB_TILE_TYPES = [
+    'toolbox', 'todo', 'thoughts', 'clock', 'files', 'countdown', 'music',
+    'embed', 'search', 'stats', 'timer', 'timelog', 'habits', 'note', 'quotes', 'reading', 'flashcards',
+    'feeds', 'weather', 'sketch',
+];
+/** entries.kind => the tile type that may own it */
+const HB_ENTRY_TILE = [
+    'card' => 'flashcards', 'quote' => 'quotes', 'reading' => 'reading', 'habit' => 'habits', 'time' => 'timelog', 'note' => 'note',
+];
 
 function hb_spec(): array
 {
@@ -50,6 +58,14 @@ function hb_spec(): array
             'parent' => ['tile_id', 'tiles'],
             'cols' => ['tile_id' => 'int', 'text' => 'str:20000', 'tags' => 'str:255'],
         ],
+        'entries' => [
+            'parent' => ['tile_id', 'tiles'],
+            'cols' => [
+                'tile_id' => 'int', 'kind' => 'enum:' . implode(',', array_keys(HB_ENTRY_TILE)),
+                'a' => 'str:200000', 'b' => 'str:20000', 'tags' => 'str:255', 'colour' => 'str:20',
+                'position' => 'int', 'day' => 'date', 'due_at' => 'dt', 'num' => 'int', 'data' => 'json',
+            ],
+        ],
     ];
 }
 
@@ -89,6 +105,14 @@ function hb_coerce(string $col, string $type, mixed $v): mixed
                 throw new HttpError(400, "$col is not valid JSON or is too large");
             }
             return $s;
+        case 'date':
+            if ($v === null || $v === '') {
+                return null;
+            }
+            if (!is_string($v) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) || !checkdate((int) substr($v, 5, 2), (int) substr($v, 8, 2), (int) substr($v, 0, 4))) {
+                throw new HttpError(400, "$col is not a date (YYYY-MM-DD)");
+            }
+            return $v;
         case 'dt':
             if ($v === null || $v === '') {
                 return null;
@@ -109,15 +133,19 @@ function hb_row(string $table, array $r): array
         if ($v === null) {
             continue;
         }
-        if (in_array($k, ['created_at', 'updated_at', 'deleted_at', 'done_at'], true)) {
+        if (in_array($k, ['created_at', 'updated_at', 'deleted_at', 'done_at', 'due_at'], true)) {
             $r[$k] = hb_iso($v);
-        } elseif (in_array($k, ['id', 'scenario_id', 'tile_id', 'x', 'y', 'width', 'height', 'position', 'size'], true)) {
+        } elseif (in_array($k, ['id', 'scenario_id', 'tile_id', 'x', 'y', 'width', 'height', 'position', 'size', 'num'], true)) {
             $r[$k] = (int) $v;
         }
     }
     if ($table === 'tiles') {
         $s = isset($r['settings']) ? json_decode((string) $r['settings'], true) : null;
         $r['settings'] = is_array($s) ? $s : new stdClass();
+    }
+    if ($table === 'entries') {
+        $d = isset($r['data']) ? json_decode((string) $r['data'], true) : null;
+        $r['data'] = is_array($d) ? $d : new stdClass();
     }
     if ($table === 'files') {
         unset($r['stored_name']); // never leaves the server; files are fetched by id
@@ -142,6 +170,8 @@ function hb_alive_sql(string $table): string
                     WHERE x.deleted_at IS NULL AND s.deleted_at IS NULL ORDER BY x.y, x.x, x.id',
         default => "SELECT x.* FROM `$table` x JOIN tiles t ON t.id = x.tile_id JOIN scenarios s ON s.id = t.scenario_id
                     WHERE x.deleted_at IS NULL AND t.deleted_at IS NULL AND s.deleted_at IS NULL "
+                    // day-based rows (habit ticks, time log) are sent for the last 400 days only; older ones stay in the database and the export
+                    . ($table === 'entries' ? 'AND (x.day IS NULL OR x.day >= (UTC_DATE() - INTERVAL 400 DAY)) ' : '')
                     . ($table === 'thoughts' ? 'ORDER BY x.created_at, x.id' : 'ORDER BY x.position, x.id'),
     };
 }
@@ -157,8 +187,45 @@ function hb_settings(): array
     return $out;
 }
 
+/**
+ * Upgrades without phpMyAdmin: when a table added by a newer version is missing, run schema.sql
+ * (it only creates what is missing). Needs the DB user to have CREATE rights, which it normally does.
+ */
+function hb_ensure_schema(): void
+{
+    static $checked = false;
+    if ($checked) {
+        return;
+    }
+    try {
+        hb_db()->query('SELECT 1 FROM entries LIMIT 0');
+        $checked = true;
+        return;
+    } catch (PDOException $e) {
+        if ($e->getCode() !== '42S02') {
+            throw $e;
+        }
+    }
+    $file = null;
+    foreach ([HB_PRIVATE . '/schema.sql', HB_PRIVATE . '/../schema.sql'] as $f) {
+        if (is_readable($f)) {
+            $file = $f;
+            break;
+        }
+    }
+    if ($file === null) {
+        throw new HttpError(500, 'The database needs upgrading: import schema.sql in phpMyAdmin (see DEPLOY.md).');
+    }
+    $sql = preg_replace('/^\s*--.*$/m', '', (string) file_get_contents($file));
+    foreach (array_filter(array_map('trim', explode(';', (string) $sql))) as $stmt) {
+        hb_db()->exec($stmt);
+    }
+    $checked = true;
+}
+
 function hb_state(): array
 {
+    hb_ensure_schema();
     hb_seed_if_empty();
     hb_maybe_purge();
     $state = ['server_time' => gmdate('Y-m-d\TH:i:s\Z')];
@@ -327,6 +394,9 @@ function hb_op_create(string $table, array $spec, array $data): array
     if ($table === 'thoughts' && isset($data['created_at'])) {
         $row['created_at'] = hb_coerce('created_at', 'dt', $data['created_at']);
     }
+    if ($table === 'entries') {
+        hb_check_entry($row);
+    }
     if (!$row) {
         throw new HttpError(400, 'Nothing to create');
     }
@@ -350,11 +420,30 @@ function hb_next_position(string $table, array $spec, array $row): int
     return (int) $r['p'];
 }
 
+/** An entry's kind must match the tile type that holds it. */
+function hb_check_entry(array $row, ?array $existing = null): void
+{
+    $kind = $row['kind'] ?? ($existing['kind'] ?? null);
+    $tileId = $row['tile_id'] ?? ($existing['tile_id'] ?? null);
+    $tile = $tileId ? hb_get_row('tiles', (int) $tileId) : null;
+    if (!$kind || !$tile || (HB_ENTRY_TILE[$kind] ?? null) !== $tile['type']) {
+        throw new HttpError(400, 'That kind of entry does not belong in this tile');
+    }
+}
+
 function hb_op_update(string $table, array $spec, int $id, array $data): array
 {
+    unset($data['id']);
+    if ($table === 'entries') {
+        unset($data['kind']); // fixed at creation
+    }
     $row = hb_clean($spec, $data, false);
-    if (!hb_get_row($table, $id)) {
+    $existing = hb_get_row($table, $id);
+    if (!$existing) {
         throw new HttpError(404, 'Not found');
+    }
+    if ($table === 'entries' && isset($row['tile_id'])) {
+        hb_check_entry($row, $existing);
     }
     hb_check_parent($spec, $row);
     if ($row) {
@@ -422,7 +511,7 @@ function hb_maybe_purge(): void
     $db = hb_db();
     $db->beginTransaction();
     try {
-        foreach (['scenarios', 'tiles', 'links', 'tasks', 'files', 'thoughts'] as $t) {
+        foreach (['scenarios', 'tiles', 'links', 'tasks', 'files', 'thoughts', 'entries'] as $t) {
             $ids = hb_q("SELECT id FROM `$t` WHERE deleted_at IS NOT NULL AND deleted_at < (UTC_TIMESTAMP() - INTERVAL $days DAY)")
                 ->fetchAll(PDO::FETCH_COLUMN);
             hb_purge_rows($t, array_map('intval', $ids), $after);
@@ -463,6 +552,7 @@ function hb_trash_list(): array
         'tasks' => fn($r) => $r['text'],
         'files' => fn($r) => $r['original_name'],
         'thoughts' => fn($r) => mb_substr($r['text'], 0, 80),
+        'entries' => fn($r) => mb_substr(trim((string) ($r['a'] ?? '')) !== '' ? (string) $r['a'] : $r['kind'], 0, 80),
     ];
     foreach ($leaf as $t => $label) {
         $rows = hb_q("SELECT x.*, t.title ttitle, t.type ttype, s.name sname FROM `$t` x
@@ -491,7 +581,7 @@ function hb_search(string $q): array
         foreach (hb_q($sql, $params)->fetchAll() as $r) {
             $out[] = [
                 'type' => $type, 'id' => (int) $r['id'], 'tile_id' => (int) $r['tile_id'],
-                'scenario_id' => (int) $r['scenario_id'], 'label' => $label($r), 'url' => $r['url'] ?? null,
+                'scenario_id' => (int) $r['scenario_id'], 'label' => $label($r), 'url' => $r['url'] ?? null, 'kind' => $r['kind'] ?? null,
                 'where' => $r['sname'] . ' / ' . ($r['ttitle'] !== '' ? $r['ttitle'] : ucfirst($r['ttype'])),
             ];
         }
@@ -499,6 +589,8 @@ function hb_search(string $q): array
     $base = fn(string $t, string $cols) => "SELECT x.id, t.id tile_id, s.id scenario_id, $cols, s.name sname, t.title ttitle, t.type ttype
         FROM `$t` x JOIN tiles t ON t.id = x.tile_id JOIN scenarios s ON s.id = t.scenario_id
         WHERE x.deleted_at IS NULL AND t.deleted_at IS NULL AND s.deleted_at IS NULL AND ";
+    $run('entries', $base('entries', 'x.a, x.kind') . "x.kind IN ('card','quote','reading','note') AND (x.a LIKE ? OR x.b LIKE ? OR x.tags LIKE ?) ORDER BY x.id DESC LIMIT 20",
+        [$like, $like, $like], fn($r) => mb_substr(trim((string) $r['a']), 0, 100));
     $run('links', $base('links', 'x.name, x.url, x.kind') . '(x.name LIKE ? OR x.url LIKE ? OR x.tags LIKE ?) ORDER BY x.name LIMIT 20',
         [$like, $like, $like], fn($r) => $r['name'] !== '' ? $r['name'] : $r['url']);
     $run('tasks', $base('tasks', 'x.text') . '(x.text LIKE ? OR x.tags LIKE ?) ORDER BY x.id DESC LIMIT 20',
@@ -515,7 +607,7 @@ function hb_search(string $q): array
 function hb_export_data(): array
 {
     $data = ['exported_at' => gmdate('Y-m-d\TH:i:s\Z'), 'version' => 1];
-    foreach (['scenarios', 'tiles', 'links', 'tasks', 'files', 'thoughts', 'settings'] as $t) {
+    foreach (['scenarios', 'tiles', 'links', 'tasks', 'files', 'thoughts', 'entries', 'settings'] as $t) {
         $data[$t] = hb_q("SELECT * FROM `$t`")->fetchAll();
     }
     return $data;

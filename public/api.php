@@ -46,6 +46,14 @@ try {
             hb_json(['items' => hb_trash_list()]);
         case 'search':
             hb_json(['results' => hb_search((string) ($_GET['q'] ?? ''))]);
+        case 'feed':
+            hb_json(hb_feed((string) ($_GET['url'] ?? '')));
+        case 'title':
+            hb_json(hb_page_title((string) ($_GET['url'] ?? '')));
+        case 'geocode':
+            hb_json(hb_geocode((string) ($_GET['q'] ?? '')));
+        case 'weather':
+            hb_json(hb_weather((float) ($_GET['lat'] ?? 0), (float) ($_GET['lon'] ?? 0), (string) ($_GET['units'] ?? 'c')));
         case 'upload':
             if ($method !== 'POST') {
                 throw new HttpError(405, 'POST only');

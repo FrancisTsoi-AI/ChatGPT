@@ -56,14 +56,14 @@ function hb_upload_target_tile(int $tileId): array
 {
     $t = hb_q('SELECT t.* FROM tiles t JOIN scenarios s ON s.id = t.scenario_id
                WHERE t.id = ? AND t.deleted_at IS NULL AND s.deleted_at IS NULL', [$tileId])->fetch();
-    if (!$t || !in_array($t['type'], ['files', 'music'], true)) {
-        throw new HttpError(400, 'Choose a Files or Music tile to upload into');
+    if (!$t || !in_array($t['type'], ['files', 'music', 'sketch'], true)) {
+        throw new HttpError(400, 'Choose a Files, Music or Sketch tile to upload into');
     }
     return $t;
 }
 
 /** Move a finished file (already on disk at $path) into storage and insert its record. */
-function hb_store_file(string $path, string $origName, int $tileId, bool $isUploaded): array
+function hb_store_file(string $path, string $origName, int $tileId, bool $isUploaded, int $replaceId = 0): array
 {
     $tile = hb_upload_target_tile($tileId);
     $name = hb_clean_name($origName);
@@ -71,6 +71,10 @@ function hb_store_file(string $path, string $origName, int $tileId, bool $isUplo
     if ($tile['type'] === 'music' && !str_starts_with($mime, 'audio/')) {
         @unlink($path);
         throw new HttpError(400, "\"$name\" is not an audio file");
+    }
+    if ($tile['type'] === 'sketch' && $mime !== 'image/png') {
+        @unlink($path);
+        throw new HttpError(400, 'A sketch must be a PNG image');
     }
     $size = (int) filesize($path);
     if ($size > (int) hb_limits()['max_file']) {
@@ -84,6 +88,16 @@ function hb_store_file(string $path, string $origName, int $tileId, bool $isUplo
         throw new HttpError(500, 'Could not store the file (is private/storage/files writable?)');
     }
     @chmod($dest, 0600);
+    if ($replaceId > 0) { // overwrite an existing record in place (used by the sketch tile)
+        $old = hb_q('SELECT * FROM files WHERE id = ? AND tile_id = ?', [$replaceId, $tileId])->fetch();
+        if (!$old || $tile['type'] !== 'sketch') {
+            @unlink($dest);
+            throw new HttpError(400, 'Nothing to replace');
+        }
+        hb_q('UPDATE files SET stored_name = ?, size = ?, type = ?, original_name = ?, deleted_at = NULL WHERE id = ?', [$stored, $size, $mime, $name, $replaceId]);
+        hb_unlink_stored((string) $old['stored_name']);
+        return hb_row('files', hb_get_row('files', $replaceId));
+    }
     $pos = (int) hb_q('SELECT COALESCE(MAX(position), -1) + 1 p FROM files WHERE tile_id = ?', [$tileId])->fetch()['p'];
     hb_q('INSERT INTO files (tile_id, original_name, stored_name, size, type, position) VALUES (?,?,?,?,?,?)',
         [$tileId, $name, $stored, $size, $mime, $pos]);
@@ -110,13 +124,14 @@ function hb_handle_upload(): array
         throw new HttpError(400, 'No file received (it may exceed post_max_size)');
     }
     $out = [];
+    $replace = (int) ($_POST['replace_id'] ?? 0);
     $names = (array) $f['name'];
     foreach ($names as $i => $n) {
         $err = (int) (((array) $f['error'])[$i] ?? UPLOAD_ERR_NO_FILE);
         if ($err !== UPLOAD_ERR_OK) {
             throw new HttpError(400, hb_upload_error_text($err));
         }
-        $out[] = hb_store_file(((array) $f['tmp_name'])[$i], (string) $n, $tileId, true);
+        $out[] = hb_store_file(((array) $f['tmp_name'])[$i], (string) $n, $tileId, true, $replace);
     }
     return ['files' => $out];
 }

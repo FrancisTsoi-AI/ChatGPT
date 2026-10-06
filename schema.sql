@@ -119,3 +119,29 @@ CREATE TABLE IF NOT EXISTS settings (
   `value` TEXT        NULL,
   PRIMARY KEY (`key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Rows for the richer tiles, one table for all of them (kind says which):
+--   card (flashcards: a=front, b=back, due_at + data = schedule), quote (a=quote, b=source, data=author/page/url),
+--   reading (a=title, b=url, data=status/note), habit (a=habit id, day, num 1/0), time (a=label, day, num=seconds),
+--   note (a=markdown text; one row per note tile).
+CREATE TABLE IF NOT EXISTS entries (
+  id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  tile_id     INT UNSIGNED NOT NULL,
+  kind        VARCHAR(12)  NOT NULL,
+  a           MEDIUMTEXT   NULL,
+  b           TEXT         NULL,
+  tags        VARCHAR(255) NOT NULL DEFAULT '',
+  colour      VARCHAR(20)  NOT NULL DEFAULT '',
+  position    INT          NOT NULL DEFAULT 0,
+  day         DATE         NULL DEFAULT NULL,
+  due_at      DATETIME     NULL DEFAULT NULL,
+  num         BIGINT       NOT NULL DEFAULT 0,
+  data        TEXT         NULL,
+  created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at  DATETIME     NULL DEFAULT NULL,
+  PRIMARY KEY (id),
+  KEY idx_entries_tile (tile_id, kind),
+  KEY idx_entries_day (day),
+  CONSTRAINT fk_entries_tile FOREIGN KEY (tile_id) REFERENCES tiles (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
