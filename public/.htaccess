@@ -1,0 +1,30 @@
+# Home Base — Apache settings for the public folder (shared hosting).
+DirectoryIndex index.php
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  # HTTPS only (also honours a proxy/CDN that terminates TLS).
+  RewriteCond %{HTTPS} off
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+# Never serve hidden files or leftover source files.
+<FilesMatch "^\.|\.(env|sql|md|log|bak|ini)$">
+  Require all denied
+</FilesMatch>
+<Files "_boot.php">
+  Require all denied
+</Files>
+
+# Static files: let the browser cache them (index.php adds ?v=mtime so uploads refresh them).
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType text/javascript "access plus 1 year"
+</IfModule>
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/css application/javascript text/javascript application/json
+</IfModule>

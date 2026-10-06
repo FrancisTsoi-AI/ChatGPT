@@ -1,0 +1,7 @@
+private/.env
+private/storage/files/*
+private/storage/sessions/*
+private/storage/ratelimit/*
+private/storage/tmp/*
+!private/storage/*/.gitkeep
+node_modules/
