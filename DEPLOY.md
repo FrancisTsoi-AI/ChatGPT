@@ -10,6 +10,7 @@ The upload zip (`homebase-task.francistsoi.com.zip`) contains:
 homebase-upload/
 ├─ DEPLOY.md              this guide
 ├─ README.md              what Home Base is and how to use it
+├─ GADGET_API.md          how a gadget (tile type) is built: hand it to an AI with one gadget's folder to change just that
 ├─ schema.sql             the database tables (you run it in phpMyAdmin the first time)
 ├─ web/                   → goes into the web folder of task.francistsoi.com
 └─ homebase-private/      → goes NEXT TO that web folder, never inside it
@@ -66,12 +67,12 @@ You do **not** need to raise `upload_max_filesize`: big files are sent in chunks
    ```
    /home/USER/
    ├─ homebase-private/          ← private (outside the web)
-   │  ├─ .env.example
-   │  ├─ src/  bin/  storage/
+   │  ├─ .env.example  schema.sql
+   │  ├─ src/  bin/  gadgets/  storage/
    └─ task.francistsoi.com/      ← the subdomain's document root
-      ├─ index.php  api.php  file.php  export.php  setup.php  _boot.php
+      ├─ index.php  api.php  assets.php  file.php  share.php  export.php  setup.php  _boot.php
       ├─ .htaccess
-      ├─ css/  js/  vendor/
+      ├─ css/  js/  gadgets/  vendor/
    ```
 
    For the older layout (`/home/USER/public_html/task`) keep `homebase-private` in `/home/USER/`
@@ -82,14 +83,14 @@ You do **not** need to raise `upload_max_filesize`: big files are sent in chunks
 
 4. Make sure these folders are writable by PHP (normally the default; use permissions `755`, or `700`
    if your host runs PHP as your own user): `homebase-private/storage/files`, `…/sessions`,
-   `…/ratelimit`, `…/tmp`.
+   `…/ratelimit`, `…/tmp`, `…/cache`.
 
 ## Step 5 · Create the tables
 
 1. Open **phpMyAdmin** from the panel and click your database in the left list (it is empty).
 2. **Import** tab → *Choose file* → `homebase-upload/schema.sql` (download it from the file manager
    to your computer first, or paste its text into the **SQL** tab) → **Go**.
-3. You should now see **8 tables**: `scenarios`, `tiles`, `links`, `tasks`, `files`, `thoughts`, `entries`, `settings`.
+3. You should now see **9 tables**: `scenarios`, `tiles`, `links`, `tasks`, `files`, `thoughts`, `entries`, `settings`, `shares`.
 
 The script only creates what is missing, so running it again later is safe.
 
@@ -123,6 +124,10 @@ Open **https://task.francistsoi.com** and sign in. Then walk through this "done 
 - [ ] 5 wrong passphrases pause sign-in for 15 minutes (try it from a private window if you like)
 - [ ] **+ Tile** shows the extra tiles; add a *Flashcards* tile, import two cards, press *Study*; add a *Note* and a *Timer*
 - [ ] (needs cURL) add a *Weather* tile and pick your city; add *News feeds* with e.g. `BBC | https://feeds.bbci.co.uk/news/rss.xml`
+- [ ] Double-click empty space: a **Writer** appears; type, make a word bold, reload: it is still there
+- [ ] Add a *YouTube playlist* tile, paste two video links, press ⏭: the second video plays (no "Error 153")
+- [ ] `⋯ → Share this scenario…` → *New share link* named `test`, open `https://task.francistsoi.com/test` in a private
+      window, type the password: you see the scenario read-only. Then *Switch off* the link
 
 ## Step 8 · Make it your start page
 
@@ -144,12 +149,35 @@ The page draws from a local cache first, so it appears immediately and syncs in 
 
 ## Updating to a new version
 
-1. Upload the new `web/` files over the old ones (they carry a version stamp, so browsers refresh).
-2. Upload the new `homebase-private/src/` and `bin/` over the old ones.
+1. Upload the new `web/` files over the old ones, **including the `gadgets/` folder** and the hidden `.htaccess`.
+   Browsers pick up the change by themselves: the scripts come from `assets.php`, whose address changes whenever a file changes.
+2. Upload the new `homebase-private/src/`, `bin/`, `gadgets/` and `schema.sql` over the old ones.
 3. **Do not overwrite** `homebase-private/.env` or anything in `homebase-private/storage/`.
-4. **Nothing to do for the database:** when a new version needs a new table, the gateway creates it by itself on first load
-   (it reads `homebase-private/schema.sql`). If your database user lacks CREATE rights you will see a message asking you to
-   import `schema.sql` in phpMyAdmin instead.
+4. **Nothing to do for the database:** when a new version needs a new table (this one adds `shares`), the gateway creates it by
+   itself on first load (it reads `homebase-private/schema.sql`). If your database user lacks CREATE rights you will see a
+   message asking you to import `schema.sql` in phpMyAdmin instead.
+5. *Coming from the previous version:* delete the old folder `web/js/tiles/`. Its files moved to `web/gadgets/` and are no
+   longer used.
+
+### Upgrading one gadget
+
+Each tile type lives in its own folder (see `GADGET_API.md`, next to this guide; `docs/GADGET_API.md` in the repository). To update only, say,
+the YouTube playlist, upload `web/gadgets/youtube/` (and `homebase-private/gadgets/youtube.php` if it changed) and reload. A new
+gadget is the same: upload its folder and it shows up in **+ Tile**. Removing a folder removes the tile type. Its tiles stay in
+the database and come back when the folder does.
+
+## Share links
+
+`⋯ → Share this scenario…` creates a link such as `https://task.francistsoi.com/home`, with a password and an expiry. How it
+works on the host:
+
+- The short address needs Apache's `mod_rewrite` (normal on shared hosting). The rule is in `web/.htaccess`, and only names
+  that are not real files or folders are rewritten. If the short link shows *Not Found*, the long form always works:
+  `https://task.francistsoi.com/share.php?s=home`. The dialog shows both.
+- Names are 3–40 lowercase letters, digits or dashes. Names of the app's own files and folders (`api`, `setup`, `gadgets`…) are refused.
+- Unlocking a link never signs anyone in to Home Base itself. Visitors can only read that scenario, and only while the link is
+  on, not expired, and the password unchanged. Five wrong passwords pause the link for 15 minutes (per visitor address).
+- *nginx* hosting: add `location ~ "^/([a-z0-9][a-z0-9-]{2,39})$" { try_files $uri $uri/ /share.php?s=$1; }`.
 
 ## Settings you can change in `.env`
 
@@ -162,8 +190,8 @@ The page draws from a local cache first, so it appears immediately and syncs in 
 | `HB_DEBUG` | 0 | `1` shows error details in API replies while you set things up |
 
 To **change your passphrase**: empty `HB_PASSPHRASE_HASH=''` in `.env`, open `setup.php` again, generate a
-new hash, paste it in. Existing devices stay signed in until you also delete the files in
-`homebase-private/storage/sessions/` (that signs everything out).
+new hash, paste it in. Existing devices stay signed in until you also choose `⋯ → Sign out on all devices…` in the app
+(or delete the files in `homebase-private/storage/sessions/`).
 
 ## Troubleshooting
 
@@ -178,7 +206,11 @@ new hash, paste it in. Existing devices stay signed in until you also delete the
 | Sign-in says "Locked" | 5 wrong tries. Wait 15 min, or delete the files in `homebase-private/storage/ratelimit/`. |
 | Uploads stop at a certain size | The progress toast shows the reason. Home Base uses chunks; if your host caps request bodies below ~256 KB, ask the host to raise `post_max_size`. |
 | *Feeds* / *Weather* say "no cURL" or "Could not load that address" | Your host has no `curl` extension, or blocks outgoing connections. Ask the host to enable PHP `curl` (and `simplexml`), or skip those two tiles. Private/LAN addresses are always refused on purpose. |
-| An *Embed* tile is blank | The site forbids being shown inside other pages (Google, GitHub, banks, most news sites). Use *Open in new tab*. YouTube/Spotify/Vimeo links are converted to their embeddable form automatically. |
+| An *Embed* tile is blank or says the site refuses | Many sites (Google, GitHub, banks, most news sites) forbid being shown inside other pages. Home Base checks this (needs cURL) and shows a simplified copy instead; `⋯ → Show` switches between *Automatic*, *Live page* and *Simplified copy*. *Open in new tab* always works. YouTube/Spotify/Vimeo links are converted to their embeddable form automatically. |
+| YouTube says **"Error 153"** | Fixed in this version: the player now tells YouTube the site's address (only the address, never the page). Upload the new `web/gadgets/` folder. If it persists, a browser extension may be stripping referrers. |
+| *Open all* opens only one link | The browser's pop-up blocker. Click the blocked-pop-up icon in the address bar and choose *Always allow pop-ups from task.francistsoi.com*, then press *Open all* again. |
+| A share link says *Not Found* | `mod_rewrite` is off. Use the long form `…/share.php?s=<name>` (see *Share links*). |
+| A share link says *not available* | It was switched off, it expired, or its scenario was deleted. Make a new one in `⋯ → Share this scenario…`. |
 | YouTube playlist shows ads | YouTube decides this; it cannot be changed from Home Base. YouTube Premium (signed in, same browser) removes ads. For an ad-free playlist use the *Music player* tile with your own audio files. |
 | Library search says "Set up" | Normal the first time. Search a word on the library's own site, copy the results-page address, paste it into the dialog; Home Base learns the pattern (right-click a site chip to redo it). |
 | Music will not seek / skip | Your host or a proxy strips `Range` requests. Playback still works, seeking does not. |
@@ -197,8 +229,21 @@ new hash, paste it in. Existing devices stay signed in until you also delete the
 - **Passphrase** is stored only as a bcrypt-style hash; guessing is slowed and paused after 5 tries.
 - **Database user** has rights on this one database only.
 - Link cards accept only `http(s)`, `mailto` and `tel` addresses.
-- **Outside fetches** (feeds, weather, page titles) run on the server with guards: only http(s) on ports 80/443, every address the
+- **Outside fetches** (feeds, weather, page and video titles, the embed check and copy) run on the server with guards: only http(s) on ports 80/443, every address the
   name resolves to must be public (no localhost, LAN or cloud-metadata ranges), the connection is pinned to the checked address,
-  redirects are re-checked, size and time are capped, and XML with entity tricks is refused. You must be signed in to use them.
-- **Embedded pages** run in a sandboxed `<iframe>` without referrer, from other websites' own origin, so they cannot read Home Base.
+  redirects are re-checked, size and time are capped, and XML with entity tricks is refused. You must be signed in to use them
+  (a share-link visitor only for what the shared tiles hold).
+- **Embedded pages** run in a sandboxed `<iframe>` from the other website's own origin, so they cannot read Home Base. They are told only
+  the site address (`https://task.francistsoi.com/`), which YouTube requires, never the page or anything after it. The *simplified copy*
+  of a site that refuses frames is fetched by the server, stripped of scripts and served with a sandbox policy (no scripts, no forms).
+- **Writer "HTML + JS"** pages run from `api.php?r=g/writer/run` under `Content-Security-Policy: sandbox allow-scripts` without
+  `allow-same-origin`: their scripts get an anonymous origin with no cookies, cannot call the API and cannot touch the Home Base page,
+  even when the run page is opened in its own tab. Rich text is cleaned by a whitelist (no scripts, event handlers, frames or
+  `javascript:` links) when it is saved and when it is shown.
+- **Share links** are read-only by design: a visitor's requests only reach the shared scenario's data and the gadget actions its tiles
+  need (a feed listed in a shared News tile, the weather for the shared place). Writes, your other scenarios, settings, trash, search,
+  backup and the share list all answer *401/403*. Passwords are stored hashed; changing it or switching the link off ends every
+  visitor's access at once.
+- **Sign out on all devices** changes a key stored in the database that every session must match, so every other device is signed
+  out on its next request (share-link visitors are not affected).
 - Markdown notes, quotes and feed text are rendered as plain DOM text, never as HTML.

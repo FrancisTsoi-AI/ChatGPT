@@ -4,7 +4,7 @@
 Layout inside the zip (see DEPLOY.md):
   homebase-upload/web/               <- public/  (document root of the subdomain)
   homebase-upload/homebase-private/  <- private/ (outside the web folder), WITHOUT .env or stored data
-  homebase-upload/{DEPLOY.md,README.md,schema.sql}
+  homebase-upload/{DEPLOY.md,README.md,GADGET_API.md,schema.sql}
 """
 import os
 import sys
@@ -49,8 +49,8 @@ def main():
             name = f'{TOP}/homebase-private/storage/{d}/.gitkeep'
             if name not in z.namelist():
                 z.writestr(name, '')
-        for f in ('DEPLOY.md', 'README.md', 'schema.sql'):
-            z.write(os.path.join(ROOT, f), f'{TOP}/{f}')
+        for f in ('DEPLOY.md', 'README.md', 'schema.sql', 'docs/GADGET_API.md'):
+            z.write(os.path.join(ROOT, f), f'{TOP}/{os.path.basename(f)}')
     with zipfile.ZipFile(OUT) as z:
         names = z.namelist()
     bad = [n for n in names if n.endswith('/.env') or '/storage/files/' in n and not n.endswith('.gitkeep')]
