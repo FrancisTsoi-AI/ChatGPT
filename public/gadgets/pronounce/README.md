@@ -135,3 +135,9 @@ Built in the browser by `links(name)`, each `target:'_blank', rel:'noopener'`, `
 - **To flashcards**: ⋯ → Send to a Flashcards tile (front = name, back = IPA + respelling).
 - **Other accents**: Australian (`en-AU`) and Indian English (`en-IN`) voices are often installed too; add them as optional rows.
 - **Record yourself**: hold to record your own attempt (MediaRecorder) and play it next to the recording. Needs `uploads: "audio"`.
+
+## howtopronounce results (v1.1.0)
+`lookup` also fetches `https://www.howtopronounce.com/<slug>` and returns `htp: { url, items: [{ say, audio }] }` — at most the first two results.
+The site has no API, so this reads the page: `.mp3` links on a `howtopronounce.com` host, and the text after "Phonetic spelling" near each one.
+The card lists them with ▶ (played through `audio`, which now also allows `howtopronounce.com` mp3s). Saved rows keep them in `data.htp`.
+If the site changes its page layout, this part finds nothing and the rest of the card still works.

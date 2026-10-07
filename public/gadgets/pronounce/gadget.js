@@ -119,9 +119,10 @@
         if (this.result !== r) return;
         r.busy = false;
         r.tried = x.tried || [];
+        r.data.htp = ((x.htp || {}).items || []).slice(0, 2);
         if (x.found) {
           r.b = x.ipa || x.uk || x.us || '';
-          r.data = { kind: 'person', uk: x.uk || '', us: x.us || '', say: x.say || '', audio: { uk: (x.audio || {}).uk || '', us: (x.audio || {}).us || '' }, source: x.source || 'manual', url: x.url || '' };
+          r.data = { htp: r.data.htp, kind: 'person', uk: x.uk || '', us: x.us || '', say: x.say || '', audio: { uk: (x.audio || {}).uk || '', us: (x.audio || {}).us || '' }, source: x.source || 'manual', url: x.url || '' };
         }
       } catch (e) {
         if (this.result !== r) return;
@@ -167,6 +168,9 @@
           h('span', { class: 'muted small' }, r.busy ? 'looking up…' : (d.source && d.source !== 'manual'
             ? (d.url ? h('a', { href: d.url, target: '_blank', rel: 'noopener', draggable: false, text: 'from ' + d.source + ' ↗' }) : 'from ' + d.source)
             : (r.id ? 'by you' : '')))),
+        (d.htp || []).length ? h('div', { class: 'pr-htp small' }, h('span', { class: 'muted', text: 'howtopronounce: ' }),
+          ...d.htp.map((it, i) => h('span', { class: 'pr-htp-item' }, (i + 1) + '. ' + (it.say || 'result ' + (i + 1)) + ' ',
+            it.audio ? h('button', { class: 'btn small ghost pr-play', text: '▶', title: 'Play howtopronounce result ' + (i + 1), onclick: (e) => { e.stopPropagation(); play(it.audio, this.id); } }) : null))) : null,
         r.failed ? h('div', { class: 'small muted', text: 'Lookup failed: ' + r.failed }) : null,
         !r.id && !r.busy && !r.failed && r.tried && !r.b ? h('div', { class: 'small muted', text: 'No IPA found (looked in ' + r.tried.join(', ') + '). Try the links, or type it with Save.' }) : null,
         ...this.playBtns(r, false),

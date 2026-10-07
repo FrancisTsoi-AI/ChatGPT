@@ -179,9 +179,54 @@ function hb_pr_dictionary(string $name): ?array
     return ($r['ipa'] !== '' || $r['audio']['uk'] !== '' || $r['audio']['us'] !== '') ? $r : null;
 }
 
+/**
+ * First two results of howtopronounce.com for a name: [{say, audio}].
+ * Heuristic page reading (the site has no API): recordings = .mp3 links on a howtopronounce host,
+ * spelling = text after "Phonetic spelling" or the item's own label.
+ */
+function hb_pr_htp_slug(string $name): string
+{
+    return rawurlencode(str_replace(' ', '-', mb_strtolower($name)));
+}
+
+function hb_pr_howtopronounce(string $name): array
+{
+    $url = 'https://www.howtopronounce.com/' . hb_pr_htp_slug($name);
+    $res = hb_fetch($url, 2097152, ['User-Agent: Mozilla/5.0 (compatible; HomeBase-Pronounce/1.0)', 'Accept: text/html']);
+    $html = $res['body'];
+    $out = [];
+    preg_match_all('~(?:https:)?//[a-z0-9.-]*howtopronounce\.com/[^"\'\s<>]+?\.mp3~i', $html, $m, PREG_OFFSET_CAPTURE);
+    foreach ($m[0] as [$u, $pos]) {
+        $u = html_entity_decode(str_starts_with($u, '//') ? 'https:' . $u : $u, ENT_QUOTES);
+        if (in_array($u, array_column($out, 'audio'), true)) {
+            continue;
+        }
+        $near = hb_clean_text(substr($html, max(0, $pos - 1500), 3000), 1200);
+        $say = '';
+        if (preg_match('~Phonetic spelling:?\s*([^\n.]{1,60})~iu', $near, $p)) {
+            $say = trim($p[1]);
+        }
+        $out[] = ['say' => mb_substr($say, 0, 60), 'audio' => $u];
+        if (count($out) >= 2) {
+            break;
+        }
+    }
+    if (!$out) {
+        $text = hb_clean_text($html, 20000);
+        preg_match_all('~Phonetic spelling:?\s*([^\n.]{1,60})~iu', $text, $p);
+        foreach (array_slice(array_unique(array_map('trim', $p[1])), 0, 2) as $say) {
+            $out[] = ['say' => $say, 'audio' => ''];
+        }
+    }
+    return ['url' => $res['url'], 'items' => $out];
+}
+
 /** Address allowed for the audio proxy, with Commons .ogg swapped for its mp3 transcode; '' if not allowed. */
 function hb_pr_audio_target(string $u): string
 {
+    if (preg_match('~^https://([a-z0-9-]+\.)*howtopronounce\.com/[^?#\s]+\.mp3$~i', $u)) {
+        return $u;
+    }
     if (preg_match('~^https://api\.dictionaryapi\.dev/media/[\w./%-]+\.mp3$~i', $u)) {
         return $u;
     }
@@ -251,6 +296,12 @@ return [
                 break;
             }
         }
+        try {
+            $out['htp'] = hb_pr_howtopronounce($q);
+        } catch (Throwable $e) {
+            $out['htp'] = ['url' => '', 'items' => []];
+        }
+        $out['tried'][] = 'howtopronounce';
         $out['found'] = $out['ipa'] !== '' || $out['audio']['uk'] !== '' || $out['audio']['us'] !== '';
         if ($out['source'] === '' && $out['found']) {
             $out['source'] = 'wiktionary';
@@ -274,7 +325,7 @@ return [
             $ok = false;
             foreach (hb_q("SELECT data FROM entries WHERE tile_id = ? AND kind = 'pron' AND deleted_at IS NULL", [$tile])->fetchAll() as $row) {
                 $d = json_decode((string) ($row['data'] ?? ''), true);
-                if (is_array($d) && in_array($u, array_values((array) ($d['audio'] ?? [])), true)) {
+                if (is_array($d) && (in_array($u, array_values((array) ($d['audio'] ?? [])), true) || in_array($u, array_column((array) ($d['htp'] ?? []), 'audio'), true))) {
                     $ok = true;
                     break;
                 }
