@@ -127,10 +127,10 @@ Built in the browser by `links(name)`, each `target:'_blank', rel:'noopener'`, `
 3. **Recordings** – the `audio` action, Free Dictionary API, Commons mp3 transcodes, ▶ recording buttons.
 4. **Polish** – a test section (copy one from `tests/v3.cjs`; fake Wiktionary / Wikipedia answers from the second test server), rebuild the zip, update CLAUDE.md (kind `pron` in the data model).
 
-## Open questions (defaults chosen above)
-- Group / size: Study, 4×6. Fine, or should it sit in Everyday?
-- Save every lookup automatically, or only on **Save** (default)?
-- Stage 5 idea: an optional AI fallback for names no source knows (key in `private/.env`, clearly labelled "guess"). Wanted?
+## Decisions (agreed with the owner)
+- Group / size: **Study, 4×6**.
+- A lookup is kept **only when Save is pressed**; nothing is stored automatically.
+- **No AI fallback / no API key.** Names no source knows get the computer voice, the respelling box and the links.
 
 ## Ideas for upgrades
 - **Bulk paste**: ⋯ → Add names… (one per line), looked up one after another.
