@@ -1,0 +1,12 @@
+{
+  "type": "pronounce",
+  "version": "0.1.0",
+  "label": "Pronounce names",
+  "icon": "🗣️",
+  "hint": "IPA and UK / US pronunciation of people's names and brands",
+  "group": "Study",
+  "order": 95,
+  "size": { "w": 4, "h": 6 },
+  "entryKinds": ["pron"],
+  "searchKinds": ["pron"]
+}
