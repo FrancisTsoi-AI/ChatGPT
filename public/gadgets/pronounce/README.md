@@ -1,7 +1,6 @@
 # 🗣️ Pronounce names (`pronounce`)
 
-> **Status: stage 1 built (v0.2.0)** — offline core: type a name, ▶ UK / ▶ US device voices, respelling, IPA typed by you,
-> Save / Edit / delete, links. `private/gadgets/pronounce.php` (online lookups, recordings) is stage 2–3 and not written yet.
+> **Status: v1.0.0 built (stages 1–3), not yet tested.** Offline core + online lookup (Wiktionary, Wikipedia, Free Dictionary API) + recordings via the `audio` action.
 
 Type or paste a person's name or a brand ("Ulyssa", "Siobhan", "Hermès", "Hyundai", "Nguyen"). The tile shows:
 - the **IPA** (`/juːˈlɪsə/`), with **UK** and **US** forms when they differ;

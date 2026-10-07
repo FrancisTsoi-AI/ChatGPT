@@ -54,6 +54,18 @@
     synth.speak(u);
   }
 
+  let player = null;
+  /** Play a recording through the gadget's audio action (CSP allows only same-origin media). */
+  function play(url, tileId) {
+    if (synth) synth.cancel();
+    if (!player) player = new Audio();
+    player.pause();
+    const q = { u: url };
+    if (HB.readOnly) q.tile = tileId;
+    player.src = HB.api.url('g/pronounce/audio', q);
+    player.play().catch(() => HB.ui.toast('Could not play that recording', { type: 'error' }));
+  }
+
   const KINDS = [['person', 'Person'], ['brand', 'Brand'], ['place', 'Place'], ['other', 'Other']];
   const slash = (x) => { x = String(x || '').trim(); return x && !/^[/[]/.test(x) ? '/' + x + '/' : x; };
 
@@ -93,12 +105,29 @@
 
     find(name) { const n = name.toLowerCase(); return this.rows().find((r) => (r.a || '').toLowerCase() === n); }
 
-    lookup(text) {
+    async lookup(text) {
       const name = cleanName(text);
       if (!name) return;
       const saved = this.find(name);
-      this.result = saved ? { saved: saved.id } : { a: name, b: '', data: { kind: 'person', source: 'manual' } };
       this.query = '';
+      if (saved) { this.result = { saved: saved.id }; this.redraw(); return; }
+      const r = { a: name, b: '', data: { kind: 'person', source: 'manual' }, busy: true };
+      this.result = r;
+      this.redraw();
+      try {
+        const x = await this.call('lookup', { q: name });
+        if (this.result !== r) return;
+        r.busy = false;
+        r.tried = x.tried || [];
+        if (x.found) {
+          r.b = x.ipa || x.uk || x.us || '';
+          r.data = { kind: 'person', uk: x.uk || '', us: x.us || '', say: x.say || '', audio: { uk: (x.audio || {}).uk || '', us: (x.audio || {}).us || '' }, source: x.source || 'manual', url: x.url || '' };
+        }
+      } catch (e) {
+        if (this.result !== r) return;
+        r.busy = false;
+        r.failed = (e && e.message) || 'Lookup failed';
+      }
       this.redraw();
     }
 
@@ -123,7 +152,9 @@
       const row = (flag, label, lang, ipa) => h('div', { class: 'pr-accent' },
         h('span', { class: 'pr-flag', text: flag + (compact ? '' : ' ' + label) }),
         compact ? null : h('span', { class: 'pr-ipa', text: ipa || '—' }),
-        h('button', { class: 'btn small ghost pr-play', text: '▶' + (compact ? ' ' + label : ''), title: 'Say it (' + label + ' voice)', onclick: (e) => { e.stopPropagation(); speak(say, lang, this.st); } }));
+        h('button', { class: 'btn small ghost pr-play', text: '▶' + (compact ? ' ' + label : ' voice'), title: 'Say it (' + label + ' computer voice)', onclick: (e) => { e.stopPropagation(); speak(say, lang, this.st); } }),
+        rec(label.toLowerCase()) ? h('button', { class: 'btn small ghost pr-play pr-rec', text: compact ? '🎙' : '▶ recording', title: label + ' recording', onclick: (e) => { e.stopPropagation(); play(rec(label.toLowerCase()), this.id); } }) : null);
+      const rec = (a) => (d.audio || {})[a] || '';
       return [row('🇬🇧', 'UK', 'en-GB', d.uk || r.b), row('🇺🇸', 'US', 'en-US', d.us || r.b)];
     }
 
@@ -133,7 +164,11 @@
       return h('div', { class: 'pr-card' },
         h('div', { class: 'pr-head' }, h('strong', { class: 'pr-name', text: r.a }), h('span', { class: 'pr-kind muted small', text: kind })),
         h('div', { class: 'pr-main' }, r.b ? h('span', { class: 'pr-ipa big', text: r.b }) : h('span', { class: 'muted small', text: 'No IPA yet — add it with Edit' }),
-          h('span', { class: 'muted small', text: r.id ? (d.source === 'manual' ? 'by you' : 'from ' + d.source) : '' })),
+          h('span', { class: 'muted small' }, r.busy ? 'looking up…' : (d.source && d.source !== 'manual'
+            ? (d.url ? h('a', { href: d.url, target: '_blank', rel: 'noopener', draggable: false, text: 'from ' + d.source + ' ↗' }) : 'from ' + d.source)
+            : (r.id ? 'by you' : '')))),
+        r.failed ? h('div', { class: 'small muted', text: 'Lookup failed: ' + r.failed }) : null,
+        !r.id && !r.busy && !r.failed && r.tried && !r.b ? h('div', { class: 'small muted', text: 'No IPA found (looked in ' + r.tried.join(', ') + '). Try the links, or type it with Save.' }) : null,
         ...this.playBtns(r, false),
         h('div', { class: 'pr-say small' }, h('span', { class: 'muted', text: 'say it like: ' }), h('span', { text: d.say || r.a })),
         d.note ? h('div', { class: 'pr-note small muted', text: d.note }) : null,

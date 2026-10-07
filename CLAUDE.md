@@ -21,8 +21,8 @@ all devices (session epoch); password + expiry share links at `/<name>` (read-on
 **Round 4** built and tested (`tests/v4.cjs`): the Writer's rich text is now a CKEditor-style editor (`public/js/editor.js` + `css/editor.css`, shared as `HB.editor`);
 new **Writer folder** gadget (`library`: pages, code pages, folders, drag, filter, search; a Writer can be moved into one); **scenario groups**
 (a named folder of tabs you minimise/maximise; setting `scenario_groups`, code in `app.js`). Next work = whatever the user asks.
-**In progress:** `pronounce` gadget (name/brand → IPA, UK/US voice, howtopronounce link) — stage 1 (offline:
-device voices, typed IPA, save, links) coded, untested; stages 2–3 (lookup/audio PHP) per `public/gadgets/pronounce/README.md`. Kind `pron`.
+**Pronounce names** gadget (`pronounce`, kind `pron`; `g/pronounce/lookup|audio`): name → IPA (Wiktionary/Wikipedia/dictionary), UK/US
+device voice + recordings, howtopronounce links. Built, NOT yet covered by tests.
 
 ## Layout
 ```
@@ -54,7 +54,7 @@ tiles with `settings.shared_from = <tile id>` are **mirror tiles** (same content
 **`entries`** serves the richer tiles (`kind` must match the tile type: manifests' `entryKinds`, `hb_entry_tile()`; `searchKinds` = what Ctrl+K searches): `card` (a=front, b=back, `due_at`, data={ivl,ease,reps,lapses,first}),
 `quote` (a=text, b=source, data={author,year,page,url}), `reading` (a=title, b=url, data={status,author,note}), `habit` (a=habit id, `day`, num 1/0 — toggled, never deleted),
 `time` (a=label, `day`, num=seconds), `note` (a=Markdown, one row per tile), `doc` (Writer: a=HTML/code, data.mode rich|web|code, one per mode),
-`video` (YouTube: a=title, b=url, data={vid,list,author}), `page` (Writer folder: a=HTML/code, b=title, `num`=parent folder id (0 = top), data={t:page|code|folder,lang,open}). `thoughts` has no `colour` column. `day` rows older than 400 days stay in the DB but are not sent in `state`.
+`video` (YouTube: a=title, b=url, data={vid,list,author}), `page` (Writer folder: a=HTML/code, b=title, `num`=parent folder id (0 = top), data={t:page|code|folder,lang,open}), `pron` (a=name, b=IPA, data={kind,uk,us,say,audio{uk,us},source,url,note}). `thoughts` has no `colour` column. `day` rows older than 400 days stay in the DB but are not sent in `state`.
 The gateway creates missing tables itself from `schema.sql` (`hb_ensure_schema`). Datetime columns MUST go through `hb_row` ISO conversion (`due_at` once leaked a
 zone-less string, which browsers read as local time: wrong by 8 h in Singapore, UTC+8). Sketch = one `files` row per `sketch` tile, replaced in place via `upload` + `replace_id`.
 **Scenario groups** live in the `settings` key `scenario_groups` = `{"groups":[{id,name,collapsed}],"of":{"<scenario id>":"<group id>"}}` (no schema change; `app.groupData()/editGroups()`; tabs show in `app.displayItems()` order, keys 1-9 follow it).
@@ -65,7 +65,7 @@ Other tiles keep their data in `tiles.settings`: To-do buckets live in the tile'
 * POST `batch` `{ops:[{op:create|update|delete|restore|purge|setting,...}]}` — one transaction; only whitelisted columns
   (`hb_spec()` in data.php) are writable; `delete` is soft; `purge` only works on trashed rows and unlinks stored files.
 * `g/<type>/<action>` — a gadget's server actions (`private/gadgets/<type>.php` returns `['action' => fn(array $c): array]`): `g/feeds/feed`,
-  `g/reading/title`, `g/weather/geocode|weather`, `g/embed/check|snapshot`, `g/writer/run`, `g/youtube/info`. Outbound only via `hb_fetch`
+  `g/reading/title`, `g/weather/geocode|weather`, `g/embed/check|snapshot`, `g/writer/run`, `g/youtube/info`, `g/pronounce/lookup|audio`. Outbound only via `hb_fetch`
   (public addresses only; metadata 169.254/fe80 always refused; `HB_ALLOW_PRIVATE_FETCH=1` is for tests ONLY); cached in `storage/cache`.
 * Share links: POST `share/unlock {slug,password}`; with `&share=<slug>` only GET `share/state` and GET gadget actions work (actions must
   refuse or scope via `hb_share_allows_setting` / `hb_share_has_tile` when `$c['share']` is set); everything else 403. Owner: `shares`,
