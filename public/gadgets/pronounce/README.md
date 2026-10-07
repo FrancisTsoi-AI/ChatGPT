@@ -1,8 +1,7 @@
 # 🗣️ Pronounce names (`pronounce`)
 
-> **Status: structure only (v0.1.0).** This file and `manifest.json` describe the gadget. `gadget.js`, `gadget.css`
-> and `private/gadgets/pronounce.php` are not written yet. Until `gadget.js` exists the server skips this folder
-> (and logs one line about it), so don't upload the folder to the host before then.
+> **Status: stage 1 built (v0.2.0)** — offline core: type a name, ▶ UK / ▶ US device voices, respelling, IPA typed by you,
+> Save / Edit / delete, links. `private/gadgets/pronounce.php` (online lookups, recordings) is stage 2–3 and not written yet.
 
 Type or paste a person's name or a brand ("Ulyssa", "Siobhan", "Hermès", "Hyundai", "Nguyen"). The tile shows:
 - the **IPA** (`/juːˈlɪsə/`), with **UK** and **US** forms when they differ;
@@ -51,7 +50,7 @@ dictionary, you) and "No IPA found" is a normal answer, not an error. You can al
 - `private/gadgets/pronounce.php` – the `lookup` and `audio` actions (see **Server actions**).
 
 ## Data
-- **Rows**: entries of kind `pron` on `ctx.id` (a mirror tile shares the original's list), ordered by `position` (new rows go first, `position` = smallest − 1).
+- **Rows**: entries of kind `pron` on `ctx.id` (a mirror tile shares the original's list), ordered by `position` (new rows go last, drag to reorder).
   | column | holds |
   |---|---|
   | `a` | the name as typed (`cleanName`) |

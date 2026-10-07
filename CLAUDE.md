@@ -21,8 +21,8 @@ all devices (session epoch); password + expiry share links at `/<name>` (read-on
 **Round 4** built and tested (`tests/v4.cjs`): the Writer's rich text is now a CKEditor-style editor (`public/js/editor.js` + `css/editor.css`, shared as `HB.editor`);
 new **Writer folder** gadget (`library`: pages, code pages, folders, drag, filter, search; a Writer can be moved into one); **scenario groups**
 (a named folder of tabs you minimise/maximise; setting `scenario_groups`, code in `app.js`). Next work = whatever the user asks.
-**In progress:** `pronounce` gadget (name/brand → IPA, UK/US voice, howtopronounce link) — structure only: `public/gadgets/pronounce/`
-README.md (the plan) + manifest.json; no gadget.js yet, so the server skips the folder. Build it in the README's stages.
+**In progress:** `pronounce` gadget (name/brand → IPA, UK/US voice, howtopronounce link) — stage 1 (offline:
+device voices, typed IPA, save, links) coded, untested; stages 2–3 (lookup/audio PHP) per `public/gadgets/pronounce/README.md`. Kind `pron`.
 
 ## Layout
 ```

@@ -1,6 +1,6 @@
 {
   "type": "pronounce",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "label": "Pronounce names",
   "icon": "🗣️",
   "hint": "IPA and UK / US pronunciation of people's names and brands",
