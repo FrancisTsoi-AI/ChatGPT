@@ -1,6 +1,11 @@
 (function () {
   const HB = (window.HB = window.HB || {});
 
+  // A share link page carries <meta name="hb-share">: everything then runs read-only for that one scenario.
+  const shareMeta = document.querySelector('meta[name=hb-share]');
+  HB.shareSlug = shareMeta ? shareMeta.content : '';
+  HB.readOnly = !!HB.shareSlug;
+
   /** Tiny DOM builder: HB.h('div', {class:'x', onclick:fn, dataset:{id:1}}, 'text', child, [more]) */
   HB.h = function (tag, props, ...kids) {
     const el = document.createElement(tag);
@@ -86,28 +91,6 @@
 
   HB.colors = ['', 'red', 'orange', 'yellow', 'green', 'teal', 'blue', 'purple', 'pink', 'gray'];
 
-  HB.typeInfo = {
-    toolbox: { label: 'Toolbox', icon: '🧰', hint: 'Link cards, group headers', group: 'Everyday' },
-    todo: { label: 'To-do', icon: '✅', hint: 'Urgent, Later, Brain-off buckets', group: 'Everyday' },
-    thoughts: { label: 'Thought dump', icon: '💭', hint: 'Type, press Enter, timestamped', group: 'Everyday' },
-    note: { label: 'Note (Markdown)', icon: '📝', hint: 'A formatted page of text', group: 'Everyday' },
-    clock: { label: 'Clock', icon: '🕒', hint: 'Time and date', group: 'Everyday' },
-    countdown: { label: 'Countdown', icon: '⏳', hint: 'Named deadlines', group: 'Everyday' },
-    flashcards: { label: 'Flashcards', icon: '🃏', hint: 'Spaced-repetition study', group: 'Study' },
-    quotes: { label: 'Quotes & citations', icon: '❝', hint: 'Quote with separate source', group: 'Study' },
-    reading: { label: 'Reading list', icon: '📚', hint: 'Unread / reading / read', group: 'Study' },
-    timer: { label: 'Timer', icon: '⏱', hint: 'Count down and count up', group: 'Focus' },
-    timelog: { label: 'Time log', icon: '🗓', hint: 'Track time per project', group: 'Focus' },
-    habits: { label: 'Habit tracker', icon: '🔥', hint: 'Daily check-offs and streaks', group: 'Focus' },
-    stats: { label: 'Stats & progress', icon: '📊', hint: 'Counters and progress bars', group: 'Focus' },
-    embed: { label: 'Embed (web, video, playlist)', icon: '🌐', hint: 'YouTube, Spotify, any https page', group: 'Web' },
-    search: { label: 'Search box', icon: '🔎', hint: 'Libraries, Scholar, Google…', group: 'Web' },
-    feeds: { label: 'News feeds (RSS)', icon: '📰', hint: 'Latest items with unread marks', group: 'Web' },
-    weather: { label: 'Weather', icon: '⛅', hint: 'Now and 5-day forecast', group: 'Web' },
-    files: { label: 'Files', icon: '📁', hint: 'Uploads, downloads, previews', group: 'Files & media' },
-    music: { label: 'Music player', icon: '🎵', hint: 'Playlist of your audio files', group: 'Files & media' },
-    sketch: { label: 'Sketch board', icon: '🖌', hint: 'Draw freehand, saved as an image', group: 'Files & media' },
-  };
 
   /** Local calendar day as YYYY-MM-DD (not UTC), for habits and the time log. */
   HB.localDay = function (d) {

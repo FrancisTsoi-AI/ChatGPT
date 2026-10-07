@@ -1,0 +1,10 @@
+/* countdown gadget */
+.countdowns { display: flex; flex-direction: column; gap: 6px; }
+.cd { display: flex; align-items: center; gap: 10px; padding: 6px 8px; background: var(--card2); border: 1px solid var(--line); border-radius: 10px; }
+.cd-days { min-width: 58px; text-align: center; line-height: 1.1; }
+.cd-days b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+.cd-days small { color: var(--muted); font-size: 11px; }
+.cd.soon .cd-days b { color: var(--warn); } .cd.past { opacity: .6; } .cd.past .cd-days b { color: var(--danger); }
+.cd-info { flex: 1; min-width: 0; cursor: pointer; }
+.cd-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cd-date { font-size: 12px; color: var(--muted); }

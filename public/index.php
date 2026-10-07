@@ -29,7 +29,7 @@ $csrf = htmlspecialchars(hb_csrf(), ENT_QUOTES);
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Cpath d='M8 15l8-7 8 7v9h-5v-6h-6v6H8z' fill='white'/%3E%3C/svg%3E">
 <script src="<?= asset('js/theme-boot.js') ?>"></script>
 <link rel="stylesheet" href="<?= asset('vendor/gridstack/gridstack.min.css') ?>">
-<link rel="stylesheet" href="<?= asset('css/app.css') ?>">
+<link rel="stylesheet" href="assets.php?b=css&amp;v=<?= hb_asset_version('css') ?>">
 </head>
 <?php if (!$authed): ?>
 <body class="login-page">
@@ -59,7 +59,7 @@ $csrf = htmlspecialchars(hb_csrf(), ENT_QUOTES);
 </header>
 <main id="board-wrap">
   <div id="board" class="grid-stack"></div>
-  <div id="empty-hint" class="empty-hint" hidden>Nothing here yet. Press <b>+ Tile</b> to add one.</div>
+  <div id="empty-hint" class="empty-hint" hidden>Nothing here yet. Press <b>+ Tile</b>, or double-click (double-tap) empty space for a Writer.</div>
 </main>
 <div id="trash-zone" class="trash-zone" title="Drop here to delete. Click to open the trash.">
   <span class="trash-icon">🗑</span><span class="trash-label">Trash</span><span id="trash-count" class="trash-count"></span>
@@ -70,38 +70,7 @@ $csrf = htmlspecialchars(hb_csrf(), ENT_QUOTES);
 <audio id="audio" preload="none"></audio>
 <script src="<?= asset('vendor/gridstack/gridstack-all.js') ?>"></script>
 <script src="<?= asset('vendor/sortable/Sortable.min.js') ?>"></script>
-<script src="<?= asset('js/util.js') ?>"></script>
-<script src="<?= asset('js/api.js') ?>"></script>
-<script src="<?= asset('js/store.js') ?>"></script>
-<script src="<?= asset('js/ui.js') ?>"></script>
-<script src="<?= asset('js/emoji.js') ?>"></script>
-<script src="<?= asset('js/md.js') ?>"></script>
-<script src="<?= asset('js/tiles/common.js') ?>"></script>
-<script src="<?= asset('js/tiles/toolbox.js') ?>"></script>
-<script src="<?= asset('js/tiles/todo.js') ?>"></script>
-<script src="<?= asset('js/tiles/thoughts.js') ?>"></script>
-<script src="<?= asset('js/tiles/clock.js') ?>"></script>
-<script src="<?= asset('js/tiles/countdown.js') ?>"></script>
-<script src="<?= asset('js/tiles/files.js') ?>"></script>
-<script src="<?= asset('js/tiles/music.js') ?>"></script>
-<script src="<?= asset('js/tiles/embed.js') ?>"></script>
-<script src="<?= asset('js/tiles/websearch.js') ?>"></script>
-<script src="<?= asset('js/tiles/stats.js') ?>"></script>
-<script src="<?= asset('js/tiles/timer.js') ?>"></script>
-<script src="<?= asset('js/tiles/weather.js') ?>"></script>
-<script src="<?= asset('js/tiles/feeds.js') ?>"></script>
-<script src="<?= asset('js/tiles/note.js') ?>"></script>
-<script src="<?= asset('js/tiles/quotes.js') ?>"></script>
-<script src="<?= asset('js/tiles/reading.js') ?>"></script>
-<script src="<?= asset('js/tiles/habits.js') ?>"></script>
-<script src="<?= asset('js/tiles/timelog.js') ?>"></script>
-<script src="<?= asset('js/tiles/flashcards.js') ?>"></script>
-<script src="<?= asset('js/tiles/sketch.js') ?>"></script>
-<script src="<?= asset('js/upload.js') ?>"></script>
-<script src="<?= asset('js/grid.js') ?>"></script>
-<script src="<?= asset('js/trash.js') ?>"></script>
-<script src="<?= asset('js/search.js') ?>"></script>
-<script src="<?= asset('js/app.js') ?>"></script>
+<script src="assets.php?b=js&amp;v=<?= hb_asset_version('js') ?>"></script>
 </body>
 <?php endif; ?>
 </html>

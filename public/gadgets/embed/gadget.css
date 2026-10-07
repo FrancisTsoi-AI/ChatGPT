@@ -1,0 +1,6 @@
+/* embed gadget */
+.embed-wrap { display: flex; flex-direction: column; height: 100%; margin: -8px -10px -10px; }
+.embed-frame { flex: 1; min-height: 0; width: 100%; border: 0; background: #fff; }
+.embed-foot { padding: 4px 10px; border-top: 1px solid var(--line); flex: none; }
+.embed-foot a { color: var(--brand); }
+.embed-setup { padding: 4px 0; }

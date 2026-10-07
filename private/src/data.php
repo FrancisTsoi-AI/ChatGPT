@@ -5,15 +5,7 @@ declare(strict_types=1);
  * Table spec. Column types: int | str:N | json | dt (nullable datetime) | enum:a,b,c
  * Only these columns can be written by the browser. `parent` = [column, parent table].
  */
-const HB_TILE_TYPES = [
-    'toolbox', 'todo', 'thoughts', 'clock', 'files', 'countdown', 'music',
-    'embed', 'search', 'stats', 'timer', 'timelog', 'habits', 'note', 'quotes', 'reading', 'flashcards',
-    'feeds', 'weather', 'sketch',
-];
-/** entries.kind => the tile type that may own it */
-const HB_ENTRY_TILE = [
-    'card' => 'flashcards', 'quote' => 'quotes', 'reading' => 'reading', 'habit' => 'habits', 'time' => 'timelog', 'note' => 'note',
-];
+// Tile types and entry kinds come from the gadget manifests: hb_tile_types(), hb_entry_tile() in gadgets.php.
 
 function hb_spec(): array
 {
@@ -26,7 +18,7 @@ function hb_spec(): array
         'tiles' => [
             'parent' => ['scenario_id', 'scenarios'],
             'cols' => [
-                'scenario_id' => 'int', 'type' => 'enum:' . implode(',', HB_TILE_TYPES),
+                'scenario_id' => 'int', 'type' => 'enum:' . implode(',', hb_tile_types()),
                 'x' => 'int', 'y' => 'int', 'width' => 'int', 'height' => 'int',
                 'title' => 'str:120', 'colour' => 'str:20', 'settings' => 'json',
             ],
@@ -61,8 +53,8 @@ function hb_spec(): array
         'entries' => [
             'parent' => ['tile_id', 'tiles'],
             'cols' => [
-                'tile_id' => 'int', 'kind' => 'enum:' . implode(',', array_keys(HB_ENTRY_TILE)),
-                'a' => 'str:200000', 'b' => 'str:20000', 'tags' => 'str:255', 'colour' => 'str:20',
+                'tile_id' => 'int', 'kind' => 'enum:' . implode(',', array_keys(hb_entry_tile()) ?: ['none']),
+                'a' => 'str:1000000', 'b' => 'str:20000', 'tags' => 'str:255', 'colour' => 'str:20',
                 'position' => 'int', 'day' => 'date', 'due_at' => 'dt', 'num' => 'int', 'data' => 'json',
             ],
         ],
@@ -198,7 +190,9 @@ function hb_ensure_schema(): void
         return;
     }
     try {
-        hb_db()->query('SELECT 1 FROM entries LIMIT 0');
+        foreach (['entries', 'shares'] as $t) { // tables added by later versions
+            hb_db()->query("SELECT 1 FROM `$t` LIMIT 0");
+        }
         $checked = true;
         return;
     } catch (PDOException $e) {
@@ -426,7 +420,7 @@ function hb_check_entry(array $row, ?array $existing = null): void
     $kind = $row['kind'] ?? ($existing['kind'] ?? null);
     $tileId = $row['tile_id'] ?? ($existing['tile_id'] ?? null);
     $tile = $tileId ? hb_get_row('tiles', (int) $tileId) : null;
-    if (!$kind || !$tile || (HB_ENTRY_TILE[$kind] ?? null) !== $tile['type']) {
+    if (!$kind || !$tile || (hb_entry_tile()[$kind] ?? null) !== $tile['type']) {
         throw new HttpError(400, 'That kind of entry does not belong in this tile');
     }
 }
@@ -589,8 +583,14 @@ function hb_search(string $q): array
     $base = fn(string $t, string $cols) => "SELECT x.id, t.id tile_id, s.id scenario_id, $cols, s.name sname, t.title ttitle, t.type ttype
         FROM `$t` x JOIN tiles t ON t.id = x.tile_id JOIN scenarios s ON s.id = t.scenario_id
         WHERE x.deleted_at IS NULL AND t.deleted_at IS NULL AND s.deleted_at IS NULL AND ";
-    $run('entries', $base('entries', 'x.a, x.kind') . "x.kind IN ('card','quote','reading','note') AND (x.a LIKE ? OR x.b LIKE ? OR x.tags LIKE ?) ORDER BY x.id DESC LIMIT 20",
-        [$like, $like, $like], fn($r) => mb_substr(trim((string) $r['a']), 0, 100));
+    $kinds = hb_search_kinds(); // from the gadget manifests ("searchKinds")
+    if ($kinds) {
+        $run('entries', $base('entries', 'x.a, x.kind') . 'x.kind IN (' . implode(',', array_fill(0, count($kinds), '?')) . ') AND (x.a LIKE ? OR x.b LIKE ? OR x.tags LIKE ?) ORDER BY x.id DESC LIMIT 20',
+            array_merge($kinds, [$like, $like, $like]), function ($r) {
+                $a = trim((string) $r['a']);
+                return str_starts_with($a, '<') ? hb_clean_text($a, 100) : mb_substr($a, 0, 100); // Writer documents are HTML
+            });
+    }
     $run('links', $base('links', 'x.name, x.url, x.kind') . '(x.name LIKE ? OR x.url LIKE ? OR x.tags LIKE ?) ORDER BY x.name LIMIT 20',
         [$like, $like, $like], fn($r) => $r['name'] !== '' ? $r['name'] : $r['url']);
     $run('tasks', $base('tasks', 'x.text') . '(x.text LIKE ? OR x.tags LIKE ?) ORDER BY x.id DESC LIMIT 20',

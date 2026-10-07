@@ -17,6 +17,19 @@
       mq.addEventListener('change', () => { this.mobile = mq.matches; this.rebuild(); });
       this.build();
       this.el.addEventListener('focusout', () => { if (this.needRender) this.reconcile(); });
+      // on a share page the gadgets' own right-click menus (edit, delete…) are off; the browser's menu shows instead
+      if (HB.readOnly) this.el.addEventListener('contextmenu', (e) => { if (!e.target.closest('.tile-head')) e.stopPropagation(); }, true);
+      // double-click (or double-tap) on empty space: a new Writer right there
+      const wrapEl = document.getElementById('board-wrap');
+      const blank = (t) => !t.closest('.grid-stack-item, .tile-wrap, .tile, button, a, input, textarea, select, [contenteditable]');
+      wrapEl.addEventListener('dblclick', (e) => { if (blank(e.target)) { e.preventDefault(); this.quickWriter(e.clientX, e.clientY); } });
+      let lastTap = null;
+      wrapEl.addEventListener('pointerup', (e) => {
+        if (e.pointerType !== 'touch' || !blank(e.target)) { lastTap = null; return; }
+        const now = Date.now();
+        if (lastTap && now - lastTap.t < 350 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30) { lastTap = null; this.quickWriter(e.clientX, e.clientY); return; }
+        lastTap = { t: now, x: e.clientX, y: e.clientY };
+      });
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && this.maxId && !HB.modalCount && !document.querySelector('.menu,.popover')) { e.preventDefault(); this.restoreMax(); }
       });
@@ -26,6 +39,7 @@
       this.el.className = this.mobile ? 'mobile-list' : 'grid-stack';
       if (this.mobile) {
         this.grid = null;
+        if (HB.readOnly) return;
         HB.sortable({ _cleanups: [] }, this.el, {
           group: 'tiles-mobile', handle: '.tile-head', draggable: '.tile-wrap', filter: 'button,input,textarea',
           put: false,
@@ -42,7 +56,7 @@
       }
       this.grid = GridStack.init({
         column: 12, cellHeight: ROW, margin: MARGIN, float: false, animate: true,
-        disableOneColumnMode: true, handle: '.tile-head',
+        disableOneColumnMode: true, handle: '.tile-head', staticGrid: !!HB.readOnly,
         draggable: { handle: '.tile-head' },
         resizable: { handles: 'n,e,s,w,ne,nw,se,sw' },
       }, this.el);
@@ -80,7 +94,7 @@
 
     clear() {
       if (this.maxId) this.restoreMax();
-      this.entries.forEach((en) => HB.runCleanups(en.body));
+      this.entries.forEach((en) => { HB.runCleanups(en.body); HB.gadgets.drop(en.id); });
       this.entries.clear();
       if (this.grid) { this.silent++; this.grid.removeAll(true); this.silent--; } else this.el.replaceChildren();
     },
@@ -134,7 +148,6 @@
 
     // -- tile chrome ---------------------------------------------------------------------------
     addEntry(tile) {
-      const def = HB.tileTypes[tile.type];
       const info = HB.typeInfo[tile.type] || { icon: '▫', label: tile.type };
       const titleEl = h('span', { class: 'tile-title', title: 'Double-click to rename' });
       const menuBtn = h('button', { class: 'tile-btn', 'aria-label': 'Tile menu', title: 'Tile menu', text: '⋯',
@@ -163,7 +176,6 @@
       });
       this.setChrome(en, tile);
       this.renderBody(en, tile);
-      if (!def) body.append(h('div', { class: 'empty', text: 'Unknown tile type: ' + tile.type }));
     },
 
     setChrome(en, tile) {
@@ -193,8 +205,8 @@
     renderBody(en, tile, force) {
       const sig = HB.tileSig(tile);
       if (!force && sig === en.sig) return;
-      const kdef = HB.tileTypes[tile.type];
-      if (!force && kdef && kdef.keep && kdef.keep(HB.tileCtx(tile))) return; // e.g. a note being typed in
+      const gadget = HB.gadgets.instance(tile);
+      if (!force && gadget && gadget.keep(HB.tileCtx(tile))) return; // e.g. a note being typed in
       const body = en.body;
       const active = document.activeElement;
       if (!force && active && body.contains(active) && active.classList.contains('inline-edit')) { this.needRender = true; return; }
@@ -205,19 +217,23 @@
       const scroll = body.scrollTop;
       HB.runCleanups(body);
       body.replaceChildren();
-      const def = HB.tileTypes[tile.type];
       const ctx = HB.tileCtx(tile);
-      if (def) {
-        if (!ctx.src) HB.missingSource(body, tile);
-        else { try { def.render(body, ctx); } catch (e) { console.error(e); body.append(h('div', { class: 'empty', text: 'This tile failed to draw.' })); } }
-      }
+      if (!gadget) body.append(h('div', { class: 'empty', text: 'The "' + tile.type + '" gadget is not installed.' }));
+      else if (!ctx.src) HB.missingSource(body, tile);
+      else { try { gadget.render(body, ctx); } catch (e) { console.error(e); body.append(h('div', { class: 'empty', text: 'This tile failed to draw.' })); } }
       body.scrollTop = scroll;
       if (focus) {
         const el = body.querySelector('[data-key="' + focus.key + '"]');
         if (el) { el.value = focus.value; el.focus({ preventScroll: true }); try { el.setSelectionRange(focus.s, focus.e); } catch (e) { /* not text */ } }
       }
       en.sig = sig;
-      if (HB.player) HB.player.syncUI();
+      HB.bus.emit('rendered', tile.id);
+    },
+
+    /** Rebuild one tile's body now (a gadget whose async work finished). */
+    redrawTile(id) {
+      const en = this.entries.get(id), t = S.get('tiles', id);
+      if (en && t) this.renderBody(en, t, true);
     },
 
     /** A tile that just saved its own change says "I am up to date", so it is not redrawn under the user's hands. */
@@ -268,6 +284,7 @@
     removeEntry(id, en) {
       if (this.maxId === id) this.restoreMax();
       HB.runCleanups(en.body);
+      HB.gadgets.drop(id);
       this.entries.delete(id);
       this.silent++;
       if (this.grid) this.grid.removeWidget(en.el, true); else en.el.remove();
@@ -276,21 +293,40 @@
 
     // -- actions -------------------------------------------------------------------------------
     renameTile(id) {
+      if (HB.readOnly) return;
       const en = this.entries.get(id);
       const tile = S.get('tiles', id);
       if (!en || !tile) return;
       HB.ui.inlineEdit(en.titleEl, { value: tile.title, max: 120, allowEmpty: true, onSave: (v) => S.update('tiles', id, { title: v }, { label: 'rename tile' }), onCancel: () => this.reconcile(true) });
     },
 
+    /** Add a Writer at the grid cell under a screen point (it may float up into free space). */
+    async quickWriter(cx, cy) {
+      if (HB.readOnly || this.scenarioId === null || !HB.gadgets.has('writer')) return;
+      const size = HB.gadgets.size('writer');
+      let x = 0, y = this.nextY();
+      if (this.grid) {
+        const r = this.el.getBoundingClientRect();
+        x = Math.max(0, Math.min(12 - size.w, Math.floor(((cx - r.left) / r.width) * 12 - size.w / 2)));
+        y = Math.max(0, Math.floor((cy - r.top) / ROW));
+      }
+      const row = await this.addTile('writer', { x, y });
+      if (!row) return;
+      for (let i = 0; i < 40; i++) { // wait for it to be drawn, then put the caret in it
+        const ed = document.querySelector('.tile[data-tile="' + row.id + '"] .wr-rich');
+        if (ed) { ed.focus(); return; }
+        await new Promise((r) => setTimeout(r, 50));
+      }
+    },
+
     nextY() { return S.tilesOf(this.scenarioId).reduce((m, t) => Math.max(m, t.y + t.height), 0); },
 
     async addTile(type, extra) {
-      const def = HB.tileTypes[type];
+      const size = HB.gadgets.size(type);
       const info = HB.typeInfo[type];
-      const settings = type === 'todo' ? { buckets: HB.defaultBuckets() } : {};
-      if (type === 'search') settings.sel = 'scholar';
       const row = await HB.safeCreate('tiles', Object.assign({
-        scenario_id: this.scenarioId, type, x: 0, y: this.nextY(), width: def.w, height: def.h, title: info.label, settings,
+        scenario_id: this.scenarioId, type, x: 0, y: this.nextY(), width: size.w, height: size.h, title: info.label,
+        settings: HB.gadgets.defaults(type),
       }, extra || {}), 'add tile');
       if (row) { this.reconcile(true); setTimeout(() => this.flash(row.id), 80); }
       return row;
@@ -314,7 +350,8 @@
     tileMenu(id) {
       const tile = S.get('tiles', id);
       if (!tile) return [];
-      const def = HB.tileTypes[tile.type] || {};
+      if (HB.readOnly) return [{ label: this.maxId === id ? 'Restore from enlarged' : 'Enlarge to fill the screen', hint: 'Esc', onClick: () => this.toggleMax(id) }];
+      const gadget = HB.gadgets.instance(tile);
       const ctx = HB.tileCtx(tile);
       const others = S.scenarios().filter((s) => s.id !== tile.scenario_id);
       const items = [
@@ -322,7 +359,7 @@
         { header: 'Colour' },
         { swatches: { value: tile.colour, onPick: (c) => S.update('tiles', id, { colour: c }, { label: 'tile colour' }) } },
       ];
-      const own = def.menu ? def.menu(tile, ctx) : [];
+      const own = gadget && ctx.src ? gadget.menu(tile, ctx) : [];
       if (own && own.length) items.push({ sep: true }, ...own);
       items.push({ sep: true });
       items.push({ label: this.maxId === id ? 'Restore from enlarged' : 'Enlarge to fill the screen', hint: 'Esc', onClick: () => this.toggleMax(id) });

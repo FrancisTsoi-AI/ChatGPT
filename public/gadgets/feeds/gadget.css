@@ -1,0 +1,5 @@
+/* feeds gadget */
+.feed-list { display: flex; flex-direction: column; gap: 6px; }
+.feed-item { display: block; text-decoration: none; color: var(--text); background: var(--card2); border: 1px solid var(--line); border-radius: 9px; padding: 6px 9px; }
+.feed-item:hover { border-color: var(--brand); } .feed-title { font-weight: 650; } .feed-item.read .feed-title { font-weight: 450; color: var(--muted); }
+.feed-sum { color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

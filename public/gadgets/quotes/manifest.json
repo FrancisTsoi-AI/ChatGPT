@@ -1,0 +1,17 @@
+{
+  "type": "quotes",
+  "version": "1.0.0",
+  "label": "Quotes & citations",
+  "icon": "❝",
+  "hint": "Quote with separate source",
+  "group": "Study",
+  "order": 80,
+  "size": {
+    "w": 4,
+    "h": 5
+  },
+  "entryKinds": [
+    "quote"
+  ],
+  "searchKinds": ["quote"]
+}

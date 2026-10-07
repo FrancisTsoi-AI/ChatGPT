@@ -1,0 +1,13 @@
+{
+  "type": "thoughts",
+  "version": "1.0.0",
+  "label": "Thought dump",
+  "icon": "💭",
+  "hint": "Type, press Enter, timestamped",
+  "group": "Everyday",
+  "order": 30,
+  "size": {
+    "w": 4,
+    "h": 5
+  }
+}

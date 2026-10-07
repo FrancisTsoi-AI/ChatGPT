@@ -19,10 +19,19 @@
       if (!S.get('scenarios', id)) return;
       const changed = id !== this.scenarioId;
       this.scenarioId = id;
-      try { localStorage.setItem('hb:active', String(id)); } catch (e) { /* ignore */ }
-      if (changed && Number(S.setting('active_scenario', 0)) !== id) S.setSetting('active_scenario', String(id));
+      if (!HB.readOnly) {
+        try { localStorage.setItem('hb:active', String(id)); } catch (e) { /* ignore */ }
+        if (changed && Number(S.setting('active_scenario', 0)) !== id) S.setSetting('active_scenario', String(id));
+      }
       HB.board.show(id);
       this.renderTabs();
+    },
+
+    /** Share page: what is shared, until when. */
+    shareBadge() {
+      const el = document.getElementById('share-badge'), sh = S.data.share;
+      if (!el || !sh) return;
+      el.textContent = 'Shared · read-only' + (sh.expires_at ? ' · until ' + new Date(sh.expires_at).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');
     },
 
     renderTabs() {
@@ -41,11 +50,12 @@
           class: 'tab' + (s.id === this.scenarioId ? ' active' : ''), role: 'tab', 'aria-selected': s.id === this.scenarioId, dataset: { id: s.id },
           title: (i < 9 ? 'Key ' + (i + 1) + ' · ' : '') + 'double-click to rename',
           onclick: () => { if (!HB.justDragged()) this.showScenario(s.id); },
-          ondblclick: () => this.renameScenario(s.id, label),
-          oncontextmenu: (e) => { e.preventDefault(); HB.ui.menu(e.clientX, e.clientY, this.scenarioMenu(s.id, label)); },
+          ondblclick: () => { if (!HB.readOnly) this.renameScenario(s.id, label); },
+          oncontextmenu: (e) => { if (HB.readOnly) return; e.preventDefault(); HB.ui.menu(e.clientX, e.clientY, this.scenarioMenu(s.id, label)); },
         }, label);
         nav.append(tab);
       });
+      if (HB.readOnly) return; // share page: one tab, nothing to add, rename or reorder
       nav.append(h('button', { class: 'tab add', title: 'New scenario', 'aria-label': 'New scenario', text: '+', onclick: () => this.newScenario() }));
       nav._sortable = Sortable.create(nav, {
         animation: 150, draggable: '.tab:not(.add)', filter: '.add', forceFallback: true, fallbackOnBody: true, fallbackTolerance: 4,
@@ -117,7 +127,7 @@
     commands() {
       const cmds = [];
       S.scenarios().forEach((s, i) => cmds.push({ label: 'Go to ' + s.name, hint: i < 9 ? 'scenario · key ' + (i + 1) : 'scenario', run: () => this.showScenario(s.id) }));
-      Object.entries(HB.typeInfo).forEach(([t, i]) => cmds.push({ label: 'Add tile: ' + i.label, hint: i.hint, run: () => HB.board.addTile(t) }));
+      HB.gadgets.types().forEach((t) => { const i = HB.typeInfo[t]; cmds.push({ label: 'Add tile: ' + i.label, hint: i.hint, run: () => HB.board.addTile(t) }); });
       cmds.push(
         { label: 'New scenario', hint: 'add a tab', run: () => this.newScenario() },
         { label: 'Undo', hint: 'Ctrl+Z', run: () => HB.history.undo() },
@@ -131,6 +141,9 @@
         { label: 'Sync now', hint: 'reload from server', run: () => this.syncNow() },
         { label: 'Keyboard shortcuts', hint: 'help', run: () => this.shortcuts() },
         { label: 'Sign out', hint: 'this device', run: () => this.logout() },
+        { label: 'Sign out on all devices', hint: 'security', run: () => this.logoutAll() },
+        { label: 'Delete this scenario', hint: 'goes to the trash', run: () => this.deleteScenario(this.scenarioId) },
+        { label: 'Share this scenario', hint: 'link + password', run: () => HB.shares.open(this.scenarioId) },
       );
       return cmds;
     },
@@ -149,6 +162,22 @@
       HB.ui.modal({ title: 'Keyboard & mouse', content: h('table', { class: 'keys' }, rows.map((r) => h('tr', {}, h('th', { text: r[0] }), h('td', { text: r[1] })))), actions: [{ label: 'Close', primary: true }] });
     },
 
+    async logoutAll() {
+      const v = await HB.ui.form({ title: 'Sign out on all devices', submit: 'Sign out everywhere', danger: true, fields: [
+        { name: 'keep', label: 'Keep this device signed in', type: 'checkbox', value: false,
+          hint: 'Every other phone, laptop and browser will need the passphrase again. Share links are not affected.' },
+      ] });
+      if (!v) return;
+      await S.flush();
+      try {
+        const r = await HB.api.logoutAll(v.keep);
+        if (v.keep) { document.querySelector('meta[name=csrf]').content = r.csrf; HB.ui.toast('All other devices are signed out.'); return; }
+      } catch (e) { HB.ui.toast('Could not sign out everywhere: ' + e.message, { type: 'error' }); return; }
+      S.clearCache();
+      try { localStorage.removeItem('hb:active'); } catch (e) { /* ignore */ }
+      location.reload();
+    },
+
     async logout() {
       await S.flush();
       try { await HB.api.logout(); } catch (e) { /* ignore */ }
@@ -160,7 +189,8 @@
     addMenu(btn) {
       const items = [];
       let group = null;
-      Object.entries(HB.typeInfo).sort((a, b) => ['Everyday', 'Study', 'Focus', 'Web', 'Files & media'].indexOf(a[1].group) - ['Everyday', 'Study', 'Focus', 'Web', 'Files & media'].indexOf(b[1].group)).forEach(([t, i]) => {
+      HB.gadgets.types().forEach((t) => {
+        const i = HB.typeInfo[t];
         if (i.group !== group) { group = i.group; items.push({ header: group }); }
         items.push({ label: i.icon + '  ' + i.label, onClick: () => HB.board.addTile(t) });
       });
@@ -174,6 +204,13 @@
         { label: 'Redo', hint: 'Ctrl+Shift+Z', disabled: !HB.history.canRedo(), onClick: () => HB.history.redo() },
         { sep: true },
         { label: 'Trash…', onClick: () => HB.trash.open() },
+        { label: 'Share this scenario…', onClick: () => HB.shares.open(this.scenarioId) },
+        { label: 'All share links…', onClick: () => HB.shares.open(null) },
+        { label: 'This scenario', children: [
+          { label: 'Rename…', onClick: () => this.renameScenario(this.scenarioId) },
+          { label: 'New scenario…', onClick: () => this.newScenario() },
+          { label: 'Delete this scenario…', danger: true, disabled: S.scenarios().length <= 1, onClick: () => this.deleteScenario(this.scenarioId) },
+        ] },
         { label: 'Theme', children: [['auto', 'Follow system'], ['light', 'Light'], ['dark', 'Dark']].map(([v, l]) => ({ label: l, checked: theme === v, onClick: () => this.setTheme(v) })) },
         { label: 'Backup', children: [
           { label: 'Download data (JSON)', onClick: () => { location.href = 'export.php?format=json'; } },
@@ -183,6 +220,7 @@
         { label: 'Keyboard & mouse help', onClick: () => this.shortcuts() },
         { sep: true },
         { label: 'Sign out', onClick: () => this.logout() },
+        { label: 'Sign out on all devices…', danger: true, onClick: () => this.logoutAll() },
       ]);
     },
 
@@ -190,14 +228,13 @@
     start() {
       S.init();
       HB.board.init();
-      HB.player.init();
-      HB.upload.initDrop();
-      HB.trash.init();
+      if (!HB.readOnly) { HB.upload.initDrop(); HB.trash.init(); }
 
       const stateEl = document.getElementById('save-state');
       const labels = { saved: 'Saved', saving: 'Saving…', unsaved: 'Unsaved…', error: 'Offline: retrying' };
       let online = true;
       const paint = () => {
+        if (!stateEl) return;
         stateEl.textContent = !online && S.status === 'saved' ? 'Offline' : labels[S.status];
         stateEl.dataset.state = !online && S.status === 'saved' ? 'error' : S.status;
       };
@@ -212,9 +249,15 @@
         this.renderTabs();
       });
 
-      document.getElementById('btn-add').addEventListener('click', (e) => this.addMenu(e.currentTarget));
-      document.getElementById('btn-menu').addEventListener('click', (e) => this.mainMenu(e.currentTarget));
-      document.getElementById('btn-search').addEventListener('click', () => HB.search.open());
+      const on = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
+      on('btn-add', (e) => this.addMenu(e.currentTarget));
+      on('btn-menu', (e) => this.mainMenu(e.currentTarget));
+      on('btn-search', () => HB.search.open());
+      on('btn-theme', () => { // share page: light / dark for this browser only
+        const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+        this.applyTheme(dark ? 'light' : 'dark');
+      });
+      if (HB.readOnly) HB.bus.on('data', () => this.shareBadge());
       document.addEventListener('keydown', (e) => this.onKey(e));
 
       const first = () => {
@@ -239,6 +282,7 @@
     },
 
     onKey(e) {
+      if (HB.readOnly) return;
       const mod = e.ctrlKey || e.metaKey;
       if (mod && !e.altKey && e.key.toLowerCase() === 'k') { e.preventDefault(); HB.search.open(); return; }
       if (HB.isTyping() || HB.modalCount) return;

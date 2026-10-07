@@ -44,9 +44,52 @@ function hb_send_session_cookie(int $life): void
     ]);
 }
 
+/**
+ * Signed in = this session logged in AND it belongs to the current "epoch". "Sign out on all devices"
+ * starts a new epoch, so every older session stops working at once (settings key _auth_epoch).
+ */
+function hb_auth_epoch(): string
+{
+    static $epoch = null;
+    if ($epoch !== null) {
+        return $epoch;
+    }
+    try {
+        $r = hb_q("SELECT `value` FROM settings WHERE `key` = '_auth_epoch'")->fetch();
+        $epoch = $r ? (string) $r['value'] : '0';
+    } catch (Throwable $e) {
+        $epoch = '0'; // database not set up yet
+    }
+    return $epoch;
+}
+
 function hb_is_authed(): bool
 {
-    return !empty($_SESSION['authed']);
+    return !empty($_SESSION['authed']) && (string) ($_SESSION['epoch'] ?? '0') === hb_auth_epoch();
+}
+
+/** Invalidate every signed-in device; optionally keep this one. */
+function hb_logout_all(bool $keepThis): void
+{
+    $new = bin2hex(random_bytes(8));
+    hb_q("INSERT INTO settings (`key`, `value`) VALUES ('_auth_epoch', ?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)", [$new]);
+    $mine = session_id();
+    // the new epoch already locks every other sign-in out; also free their session files, but keep the
+    // ones that only hold share-link unlocks (visitors are managed per link: new password or switch off)
+    foreach (glob(hb_storage('sessions') . '/sess_*') ?: [] as $f) {
+        $c = (string) @file_get_contents($f);
+        if (basename($f) !== 'sess_' . $mine && (str_contains($c, 'authed|b:1') || str_contains($c, 's:6:"authed";b:1'))) {
+            @unlink($f);
+        }
+    }
+    if ($keepThis) {
+        $_SESSION['epoch'] = $new;
+        session_regenerate_id(true);
+        $_SESSION['csrf'] = bin2hex(random_bytes(24));
+        hb_send_session_cookie(hb_session_days() * 86400);
+    } else {
+        hb_logout();
+    }
 }
 
 function hb_csrf(): string
@@ -71,27 +114,28 @@ function hb_require_csrf(): void
 
 // ---- rate limit (per client IP, kept in private/storage/ratelimit) -------------------------
 
-function hb_rl_file(): string
+/** $bucket separates counters: '' = owner sign-in, 'share:<slug>' = one share link's password. */
+function hb_rl_file(string $bucket = ''): string
 {
-    return hb_storage('ratelimit') . '/' . hash('sha256', $_SERVER['REMOTE_ADDR'] ?? 'cli') . '.json';
+    return hb_storage('ratelimit') . '/' . hash('sha256', $bucket . '|' . ($_SERVER['REMOTE_ADDR'] ?? 'cli')) . '.json';
 }
 
-function hb_rl_read(): array
+function hb_rl_read(string $bucket = ''): array
 {
-    $f = hb_rl_file();
+    $f = hb_rl_file($bucket);
     $d = is_file($f) ? json_decode((string) file_get_contents($f), true) : null;
     return is_array($d) ? $d + ['fails' => 0, 'until' => 0] : ['fails' => 0, 'until' => 0];
 }
 
-function hb_rl_write(array $d): void
+function hb_rl_write(array $d, string $bucket = ''): void
 {
-    file_put_contents(hb_rl_file(), json_encode($d), LOCK_EX);
+    file_put_contents(hb_rl_file($bucket), json_encode($d), LOCK_EX);
 }
 
 /** Seconds the client is still locked out (0 = free to try). */
-function hb_rl_wait(): int
+function hb_rl_wait(string $bucket = ''): int
 {
-    return max(0, (int) hb_rl_read()['until'] - time());
+    return max(0, (int) hb_rl_read($bucket)['until'] - time());
 }
 
 function hb_login(string $passphrase): void
@@ -109,6 +153,7 @@ function hb_login(string $passphrase): void
         hb_housekeeping();
         session_regenerate_id(true);
         $_SESSION['authed'] = true;
+        $_SESSION['epoch'] = hb_auth_epoch();
         $_SESSION['csrf'] = bin2hex(random_bytes(24));
         hb_send_session_cookie(hb_session_days() * 86400);
         return;

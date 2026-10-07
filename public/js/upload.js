@@ -2,8 +2,6 @@
   const HB = window.HB;
   const h = HB.h;
   const S = HB.store;
-  const AUDIO_RE = /\.(mp3|m4a|aac|wav|ogg|oga|opus|flac|weba)$/i;
-  const isAudioFile = (f) => /^audio\//.test(f.type) || AUDIO_RE.test(f.name);
 
   /** POST multipart with upload progress (fetch cannot report it). */
   function xhrPost(route, form, onProgress) {
@@ -63,13 +61,15 @@
   }
 
   const upload = (HB.upload = {
+    /** Upload one File into a tile and resolve with its file row (used by gadgets that place the file themselves). */
+    one: (file, tileId, onProgress) => uploadOne(file, tileId, onProgress || (() => {})),
     queue: [], running: 0,
     /** Upload browser File objects into a Files/Music tile (content tile id). */
     files(list, tileId) {
       const tile = S.get('tiles', tileId);
       if (!tile) { HB.ui.toast('That tile is gone', { type: 'error' }); return; }
       list.forEach((file) => {
-        if (tile.type === 'music' && !isAudioFile(file)) { HB.ui.toast('"' + file.name + '" is not an audio file', { type: 'error' }); return; }
+        if (HB.gadgets.meta(tile.type).uploads === 'audio' && !isAudioFile(file)) { HB.ui.toast('"' + file.name + '" is not an audio file', { type: 'error' }); return; }
         this.queue.push({ file, tileId });
       });
       this.pump();
@@ -91,15 +91,14 @@
   const hasFiles = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
 
   /** Which Files/Music tile (content tile) should receive a drop at this point? */
+  const takes = (t, rule) => t && S.contentTile(t) && HB.gadgets.meta(t.type).uploads === rule;
   function targetFor(x, y) {
     const under = HB.board.tileAt(x, y);
-    if (under && (under.type === 'files' || under.type === 'music')) {
-      const src = S.contentTile(under);
-      if (src) return { id: src.id, display: under };
-    }
-    const first = S.tilesOf(HB.board.scenarioId).find((t) => t.type === 'files' && S.contentTile(t));
+    if (takes(under, 'any') || takes(under, 'audio')) return { id: S.contentTile(under).id, display: under, under: true };
+    const first = S.tilesOf(HB.board.scenarioId).find((t) => takes(t, 'any'));
     return first ? { id: S.contentTile(first).id, display: first } : null;
   }
+  const isAudioFile = (f) => /^audio\//.test(f.type) || /\.(mp3|mpga|m4a|aac|wav|ogg|oga|opus|flac|weba)$/i.test(f.name);
 
   async function walk(entry, out) {
     if (entry.isFile) { await new Promise((res) => entry.file((f) => { out.push(f); res(); }, res)); return; }
@@ -138,6 +137,7 @@
     });
     window.addEventListener('drop', async (e) => {
       if (!hasFiles(e)) return;
+      if (e.defaultPrevented) { clear(); return; } // a gadget (e.g. the Writer) took this drop itself
       e.preventDefault();
       const target = targetFor(e.clientX, e.clientY);
       const dt = e.dataTransfer;
@@ -146,6 +146,9 @@
       const list = await filesPromise;
       if (!list.length) return;
       let id = target && target.id;
+      // audio dropped on empty space goes to the Music player, not the Files tile
+      const music = S.tilesOf(HB.board.scenarioId).find((t) => takes(t, 'audio'));
+      if (!(target && target.under) && music && list.every(isAudioFile)) id = S.contentTile(music).id;
       if (!id) {
         const row = await HB.board.addTile('files');
         if (!row) return;

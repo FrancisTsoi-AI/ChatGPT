@@ -145,3 +145,22 @@ CREATE TABLE IF NOT EXISTS entries (
   KEY idx_entries_day (day),
   CONSTRAINT fk_entries_tile FOREIGN KEY (tile_id) REFERENCES tiles (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Read-only share links for a scenario: https://<your site>/<slug>, protected by a password, with an
+-- optional expiry. The password is stored only as a hash. Deleting a scenario for good removes its links.
+CREATE TABLE IF NOT EXISTS shares (
+  id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  scenario_id    INT UNSIGNED NOT NULL,
+  slug           VARCHAR(40)  NOT NULL,
+  pass_hash      VARCHAR(255) NOT NULL,
+  expires_at     DATETIME     NULL DEFAULT NULL,
+  include_files  TINYINT(1)   NOT NULL DEFAULT 1,
+  views          INT UNSIGNED NOT NULL DEFAULT 0,
+  last_viewed_at DATETIME     NULL DEFAULT NULL,
+  created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_shares_slug (slug),
+  KEY idx_shares_scenario (scenario_id),
+  CONSTRAINT fk_shares_scenario FOREIGN KEY (scenario_id) REFERENCES scenarios (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

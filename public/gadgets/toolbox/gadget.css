@@ -1,0 +1,21 @@
+/* toolbox gadget */
+.links { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px; align-content: start; min-height: 40px; }
+.link-card { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 10px; background: var(--card2); border: 1px solid var(--line); text-decoration: none; color: var(--text); min-width: 0; position: relative; }
+.link-card:hover { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 7%, var(--card2)); }
+.link-icon { width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; flex: none; }
+.link-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; font-weight: 550; }
+.link-card .chips { display: none; }
+.link-header { grid-column: 1 / -1; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; padding: 8px 2px 2px; border-bottom: 1px solid var(--line); cursor: grab; }
+.link-header[data-color]:not([data-color=""]) { border-bottom-color: var(--accent); color: var(--accent); box-shadow: none; }
+.tb-bar { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+.link-header { display: flex; align-items: center; gap: 6px; }
+.link-header-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.link-open-group { border: 0; background: transparent; color: var(--muted); font-size: 11px; text-transform: none; letter-spacing: 0; padding: 0 4px; border-radius: 6px; opacity: 0; }
+.link-header:hover .link-open-group, .link-open-group:focus-visible { opacity: 1; }
+.link-open-group:hover { color: var(--brand); background: var(--hover); }
+/* icons-only view: the name shows on hover */
+.links.icons { grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 6px; }
+.links.icons .link-card { justify-content: center; padding: 8px 4px; }
+.links.icons .link-name { display: none; }
+.links.icons .link-icon { width: 36px; height: 36px; font-size: 22px; border-radius: 10px; }
+@media (max-width: 899px) { .link-open-group { opacity: 1; } }

@@ -5,6 +5,8 @@ declare(strict_types=1);
  * Finds the private folder and loads the gateway. The private folder must sit OUTSIDE the
  * web root, e.g. /home/USER/homebase-private. See DEPLOY.md.
  */
+define('HB_PUBLIC', __DIR__);
+
 (function () {
     // 1) an explicit path, 2) a one-line file public/.private-path, 3) usual places next to / above the web root
     $candidates = [(string) ($_SERVER['HB_PRIVATE_DIR'] ?? getenv('HB_PRIVATE_DIR') ?: '')];

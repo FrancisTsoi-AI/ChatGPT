@@ -1,0 +1,13 @@
+{
+  "type": "timer",
+  "version": "1.0.0",
+  "label": "Timer",
+  "icon": "⏱",
+  "hint": "Count down and count up",
+  "group": "Focus",
+  "order": 100,
+  "size": {
+    "w": 3,
+    "h": 4
+  }
+}

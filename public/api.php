@@ -25,13 +25,54 @@ try {
         hb_logout();
         hb_json(['authed' => false]);
     }
+    if ($route === 'auth/logout-all' && $method === 'POST') {
+        hb_require_auth();
+        $keep = !empty(hb_input()['keep_this']);
+        hb_logout_all($keep);
+        hb_json(['authed' => $keep, 'csrf' => $keep ? hb_csrf() : null]);
+    }
+
+    // ---- visitors of a share link: unlock, then only the shared scenario, read-only ----------------
+    if ($route === 'share/unlock' && $method === 'POST') {
+        $in = hb_input();
+        hb_share_unlock((string) ($in['slug'] ?? ''), (string) ($in['password'] ?? ''));
+        hb_json(['ok' => true]);
+    }
+    $shareSlug = (string) ($_GET['share'] ?? '');
+    if ($shareSlug !== '') {
+        $share = hb_share_require($shareSlug);
+        if ($route === 'share/state' && $method === 'GET') {
+            hb_json(hb_share_state($share));
+        }
+        if ($method === 'GET' && preg_match('#^g/([a-z][a-z0-9_]*)/([a-z][a-z0-9_]*)$#', $route, $m)) {
+            hb_json(hb_gadget_action($m[1], $m[2], $share));
+        }
+        throw new HttpError(403, 'This shared page is read-only');
+    }
 
     hb_require_auth();
+
+    // ---- share links (owner) ----
+    if ($route === 'shares' && $method === 'GET') {
+        hb_json(['shares' => hb_share_list()]);
+    }
+    if ($route === 'shares/save' && $method === 'POST') {
+        hb_json(['share' => hb_share_save(hb_input())]);
+    }
+    if ($route === 'shares/delete' && $method === 'POST') {
+        hb_q('DELETE FROM shares WHERE id = ?', [(int) (hb_input()['id'] ?? 0)]);
+        hb_json(['ok' => true]);
+    }
 
     // Upload bodies bigger than post_max_size arrive empty; say so instead of a vague error.
     if (($route === 'upload' || $route === 'upload-chunk') && $method === 'POST' && !$_POST && !$_FILES
         && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
         throw new HttpError(413, 'Upload is larger than the server allows (post_max_size)');
+    }
+
+    // a gadget's own server actions: g/<type>/<action>  (private/gadgets/<type>.php)
+    if (preg_match('#^g/([a-z][a-z0-9_]*)/([a-z][a-z0-9_]*)$#', $route, $m)) {
+        hb_json(hb_gadget_action($m[1], $m[2], null));
     }
 
     switch ($route) {
@@ -46,14 +87,6 @@ try {
             hb_json(['items' => hb_trash_list()]);
         case 'search':
             hb_json(['results' => hb_search((string) ($_GET['q'] ?? ''))]);
-        case 'feed':
-            hb_json(hb_feed((string) ($_GET['url'] ?? '')));
-        case 'title':
-            hb_json(hb_page_title((string) ($_GET['url'] ?? '')));
-        case 'geocode':
-            hb_json(hb_geocode((string) ($_GET['q'] ?? '')));
-        case 'weather':
-            hb_json(hb_weather((float) ($_GET['lat'] ?? 0), (float) ($_GET['lon'] ?? 0), (string) ($_GET['units'] ?? 'c')));
         case 'upload':
             if ($method !== 'POST') {
                 throw new HttpError(405, 'POST only');

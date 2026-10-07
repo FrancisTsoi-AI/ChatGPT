@@ -19,7 +19,7 @@ function hb_security_headers(bool $page = false): void
         header('Strict-Transport-Security: max-age=31536000');
     }
     if ($page) {
-        header("Content-Security-Policy: default-src 'self'; img-src 'self' data: blob:; "
+        header("Content-Security-Policy: default-src 'self'; img-src 'self' data: blob: https://i.ytimg.com; "
             . "style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; "
             . "media-src 'self' blob:; frame-src 'self' https:; object-src 'self'; base-uri 'none'; form-action 'self'");
     }

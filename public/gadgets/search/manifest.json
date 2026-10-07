@@ -1,0 +1,13 @@
+{
+  "type": "search",
+  "version": "1.0.0",
+  "label": "Search box",
+  "icon": "🔎",
+  "hint": "Libraries, Scholar, Google…",
+  "group": "Web",
+  "order": 150,
+  "size": {
+    "w": 4,
+    "h": 3
+  }
+}

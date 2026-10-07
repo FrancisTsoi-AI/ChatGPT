@@ -1,0 +1,10 @@
+/* weather gadget */
+.weather { text-align: center; }
+.wx-place { font-weight: 650; } .wx-now { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.wx-icon { font-size: 44px; line-height: 1; } .wx-temp { font-size: 38px; font-weight: 700; }
+.wx-text { margin-bottom: 2px; }
+.wx-days { display: grid; grid-template-columns: repeat(auto-fit, minmax(52px, 1fr)); gap: 6px; margin-top: 10px; }
+.wx-day { background: var(--card2); border: 1px solid var(--line); border-radius: 9px; padding: 4px 2px; } .wx-dicon { font-size: 20px; }
+.places { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.place { text-align: left; border: 1px solid var(--line); background: var(--card2); border-radius: 8px; padding: 6px 9px; }
+.place:hover { border-color: var(--brand); }

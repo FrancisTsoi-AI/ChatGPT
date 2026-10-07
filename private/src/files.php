@@ -31,7 +31,7 @@ function hb_clean_name(string $name): string
 function hb_guess_mime(string $path, string $name): string
 {
     static $map = [
-        'mp3' => 'audio/mpeg', 'm4a' => 'audio/mp4', 'aac' => 'audio/aac', 'wav' => 'audio/wav', 'ogg' => 'audio/ogg',
+        'mp3' => 'audio/mpeg', 'mpga' => 'audio/mpeg', 'm4a' => 'audio/mp4', 'aac' => 'audio/aac', 'wav' => 'audio/wav', 'ogg' => 'audio/ogg',
         'oga' => 'audio/ogg', 'opus' => 'audio/ogg', 'flac' => 'audio/flac', 'weba' => 'audio/webm',
         'pdf' => 'application/pdf', 'png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg',
         'gif' => 'image/gif', 'webp' => 'image/webp', 'svg' => 'image/svg+xml', 'avif' => 'image/avif',
@@ -56,8 +56,8 @@ function hb_upload_target_tile(int $tileId): array
 {
     $t = hb_q('SELECT t.* FROM tiles t JOIN scenarios s ON s.id = t.scenario_id
                WHERE t.id = ? AND t.deleted_at IS NULL AND s.deleted_at IS NULL', [$tileId])->fetch();
-    if (!$t || !in_array($t['type'], ['files', 'music', 'sketch'], true)) {
-        throw new HttpError(400, 'Choose a Files, Music or Sketch tile to upload into');
+    if (!$t || hb_gadget_upload_rule((string) $t['type']) === null) {
+        throw new HttpError(400, 'This tile does not take uploads (use a Files or Music tile)');
     }
     return $t;
 }
@@ -68,13 +68,18 @@ function hb_store_file(string $path, string $origName, int $tileId, bool $isUplo
     $tile = hb_upload_target_tile($tileId);
     $name = hb_clean_name($origName);
     $mime = hb_guess_mime($path, $name);
-    if ($tile['type'] === 'music' && !str_starts_with($mime, 'audio/')) {
+    $rule = hb_gadget_upload_rule((string) $tile['type']);
+    if ($rule === 'audio' && !str_starts_with($mime, 'audio/')) {
         @unlink($path);
         throw new HttpError(400, "\"$name\" is not an audio file");
     }
-    if ($tile['type'] === 'sketch' && $mime !== 'image/png') {
+    if ($rule === 'png' && $mime !== 'image/png') {
         @unlink($path);
         throw new HttpError(400, 'A sketch must be a PNG image');
+    }
+    if ($rule === 'image' && !in_array($mime, ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif'], true)) {
+        @unlink($path);
+        throw new HttpError(400, 'Only images (PNG, JPEG, GIF, WebP) can go here');
     }
     $size = (int) filesize($path);
     if ($size > (int) hb_limits()['max_file']) {
@@ -90,7 +95,7 @@ function hb_store_file(string $path, string $origName, int $tileId, bool $isUplo
     @chmod($dest, 0600);
     if ($replaceId > 0) { // overwrite an existing record in place (used by the sketch tile)
         $old = hb_q('SELECT * FROM files WHERE id = ? AND tile_id = ?', [$replaceId, $tileId])->fetch();
-        if (!$old || $tile['type'] !== 'sketch') {
+        if (!$old || $rule !== 'png') {
             @unlink($dest);
             throw new HttpError(400, 'Nothing to replace');
         }
@@ -199,6 +204,9 @@ function hb_serve_file(int $id, bool $download): void
     }
     session_write_close(); // do not block other requests while streaming
     $mime = (string) $r['type'];
+    if ($mime === 'application/octet-stream' || $mime === '') { // older uploads the server could not type: go by the name
+        $mime = hb_guess_mime($path, (string) $r['original_name']);
+    }
     $inlineOk = !$download && (preg_match('#^(image|audio|video)/#', $mime) || in_array($mime, ['application/pdf', 'text/plain'], true));
     $name = (string) $r['original_name'];
     $size = (int) filesize($path);

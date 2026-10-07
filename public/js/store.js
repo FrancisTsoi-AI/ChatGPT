@@ -83,7 +83,15 @@
     setting(key, dflt) { const v = this.data.settings[key]; return v === undefined || v === null ? dflt : v; },
 
     // -- lifecycle --
+    /** Read-only (share page): say so, at most every few seconds, and refuse the change. */
+    _readOnly() {
+      if (!HB.readOnly) return false;
+      if (!this._roToast || Date.now() - this._roToast > 4000) { this._roToast = Date.now(); HB.ui.toast('This shared page is read-only.'); }
+      return true;
+    },
+
     init() {
+      if (HB.readOnly) return; // a share page always draws fresh from the server
       try {
         const c = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
         if (c && Array.isArray(c.scenarios) && c.scenarios.length) {
@@ -94,6 +102,7 @@
     },
     clearCache() { try { localStorage.removeItem(CACHE_KEY); } catch (e) { /* ignore */ } },
     _cache: HB.debounce(function () {
+      if (HB.readOnly) return;
       try { localStorage.setItem(CACHE_KEY, JSON.stringify(S.data)); } catch (e) { /* quota: skip */ }
     }, 400),
     _touch() { this.rev++; this._cache(); },
@@ -189,6 +198,7 @@
 
     // -- writing (all optimistic except create) --
     update(type, id, patch, opt) {
+      if (this._readOnly()) return;
       const row = this.get(type, id);
       if (!row) return;
       const before = {}, change = {};
@@ -217,6 +227,7 @@
     },
 
     async create(type, data, opt) {
+      if (this._readOnly()) { const e = new Error('read-only'); e.status = 403; throw e; }
       const [res] = await this._send([{ op: 'create', type, data: clone(data) }]);
       const row = res.row;
       this.data[type].push(row);
@@ -235,6 +246,7 @@
 
     /** Create several rows in one request (one undo step). */
     async createMany(type, list, opt) {
+      if (this._readOnly()) { const e = new Error('read-only'); e.status = 403; throw e; }
       if (!list.length) return [];
       const res = await this._send(list.map((data) => ({ op: 'create', type, data: clone(data) })));
       const rows = res.map((r) => r.row);
@@ -267,6 +279,7 @@
     },
 
     remove(type, id, opt) {
+      if (this._readOnly()) return;
       if (type === 'scenarios' && this.data.scenarios.length <= 1) { HB.ui.toast('You cannot delete the last scenario', { type: 'error' }); return; }
       const tree = this._detach(type, id);
       if (!tree.length) return;
@@ -285,6 +298,7 @@
 
     /** Undo of a delete: put the detached rows back and tell the server. */
     restore(type, id) {
+      if (this._readOnly()) return;
       const tree = this.removed[type + ':' + id];
       if (!tree) { return this.restoreRemote(type, id); }
       delete this.removed[type + ':' + id];
@@ -304,6 +318,7 @@
     },
 
     setSetting(key, value) {
+      if (HB.readOnly) { this.data.settings[key] = value; return; } // e.g. the theme: this browser only
       this.data.settings[key] = value;
       this._queue({ op: 'setting', key, value });
       this._touch();

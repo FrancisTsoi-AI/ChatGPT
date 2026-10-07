@@ -1,0 +1,14 @@
+{
+  "type": "files",
+  "version": "1.0.0",
+  "label": "Files",
+  "icon": "📁",
+  "hint": "Uploads, downloads, previews",
+  "group": "Files & media",
+  "order": 180,
+  "size": {
+    "w": 4,
+    "h": 5
+  },
+  "uploads": "any"
+}

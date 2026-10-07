@@ -1,0 +1,17 @@
+{
+  "type": "flashcards",
+  "version": "1.0.0",
+  "label": "Flashcards",
+  "icon": "🃏",
+  "hint": "Spaced-repetition study",
+  "group": "Study",
+  "order": 70,
+  "size": {
+    "w": 3,
+    "h": 4
+  },
+  "entryKinds": [
+    "card"
+  ],
+  "searchKinds": ["card"]
+}

@@ -1,0 +1,7 @@
+/* sketch gadget */
+.sk { display: flex; flex-direction: column; height: 100%; margin: -4px -4px -6px; }
+.sk-bar { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; padding: 4px; flex: none; }
+.sk-color { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--card); box-shadow: 0 0 0 1px var(--line); padding: 0; }
+.sk-color.on { box-shadow: 0 0 0 2px var(--text); } .sk-sep { width: 1px; height: 18px; background: var(--line); }
+.sk-wrap { flex: 1; min-height: 0; container-type: size; display: grid; place-items: center; background: var(--card2); border-radius: 10px; }
+.sk-canvas { width: min(100cqw, 160cqh); height: min(62.5cqw, 100cqh); background: #fff; border-radius: 6px; touch-action: none; cursor: crosshair; box-shadow: 0 0 0 1px var(--line); }

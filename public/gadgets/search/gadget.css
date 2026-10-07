@@ -1,0 +1,5 @@
+/* search gadget */
+.engines { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.engine { border: 1px solid var(--line); background: var(--card2); border-radius: 999px; padding: 2px 10px; font-size: 12px; color: var(--muted); }
+.engine:hover { color: var(--text); } .engine.on { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); }
+.engine.setup::after { content: " ⚙"; font-size: 10px; }

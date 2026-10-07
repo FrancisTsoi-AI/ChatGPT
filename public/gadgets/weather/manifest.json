@@ -1,0 +1,13 @@
+{
+  "type": "weather",
+  "version": "1.0.0",
+  "label": "Weather",
+  "icon": "⛅",
+  "hint": "Now and 5-day forecast",
+  "group": "Web",
+  "order": 170,
+  "size": {
+    "w": 3,
+    "h": 4
+  }
+}

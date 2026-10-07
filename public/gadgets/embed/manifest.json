@@ -1,0 +1,13 @@
+{
+  "type": "embed",
+  "version": "1.0.0",
+  "label": "Embed (web, video, playlist)",
+  "icon": "🌐",
+  "hint": "YouTube, Spotify, any https page",
+  "group": "Web",
+  "order": 140,
+  "size": {
+    "w": 6,
+    "h": 6
+  }
+}

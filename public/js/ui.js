@@ -70,6 +70,7 @@
 
   /** Promise-based form dialog. Returns the values object, or null if cancelled. */
   ui.form = function (o) {
+    if (HB.readOnly && !o.readOnlyOk) { HB.store._readOnly(); return Promise.resolve(null); }
     return new Promise((resolve) => {
       const form = h('form', { class: 'form', novalidate: true });
       const inputs = {};
@@ -246,6 +247,7 @@
   // ---- inline editing ----------------------------------------------------------------------
   /** Swap `el` for an input; Enter/blur saves, Esc cancels. */
   ui.inlineEdit = function (el, o) {
+    if (HB.readOnly) return null;
     const multiline = !!o.multiline;
     const input = h(multiline ? 'textarea' : 'input', { class: 'inline-edit', value: o.value || '', maxlength: o.max || null, rows: multiline ? 3 : null });
     if (o.key) input.dataset.key = o.key;
