@@ -29,7 +29,8 @@ moved to another scenario, shared into another scenario (*Also show in…*), and
 | Tile | What it does |
 |---|---|
 | **Toolbox** | Link cards; **emoji icons are picked for you** from the name (Gmail → 📧) and an emoji picker with keyword search is built in; group headers, colours, tags; paste a link or `Name \| address`; drag to reorder or into another toolbox. **Open all** opens every link at once (or *open N ↗* per group; allow pop-ups for the site the first time); **Icons** shows only the icons, the name appears on hover |
-| **Writer** | A word-processor page: headings, bold/italic/underline, colours, highlight, lists, alignment, links, tables, pictures (paste, drop or upload). Two more modes: **HTML + JS** (write a small web page and run it in a safe preview) and **Code** (syntax colours for JS, Python, PHP, HTML, CSS, SQL…, copy and download) |
+| **Writer** | A document editor in the style of CKEditor: paragraph styles, fonts and sizes, bold/italic/underline/strike/code, colours and highlight, bulleted / numbered / **to-do** lists, indent, line spacing, alignment, links (with a balloon to open / edit / unlink), pictures (paste, drop, upload or web address; resize by dragging, align, alt text), tables (grid picker, add or delete rows and columns), quotes, code blocks, special characters, emoji, **find and replace**, HTML source view, Markdown shortcuts while you type (`# `, `- `, `[] `, `**bold**`), word count, print / PDF. Two more modes: **HTML + JS** (write a small web page and run it in a safe preview) and **Code** (syntax colours for JS, Python, PHP, HTML, CSS, SQL…, copy and download) |
+| **Writer folder** | One tile for **many documents**: pages and code pages in folders and sub-folders (drag to reorder or move, filter, rename, duplicate), the open page beside the list, the same editor as the Writer. `⋯ → Move into a Writer folder` on a Writer tile files it away |
 | **To-do** | Buckets *Urgent · Later · Brain-off · No category* (rename, add or remove); tick, edit in place, drag between buckets and tiles; `#tags` become tags |
 | **Thought dump** | Type, press Enter, timestamped; Shift+Enter for a new line; click to edit |
 | **Note (Markdown)** | One formatted page: headings, **bold**, lists, `- [ ]` task boxes you can tick, quotes, code, links. Safe: pasted text can never run as script |
@@ -57,6 +58,8 @@ Premium, signed in in the same browser, does). For an ad-free playlist use the *
 
 ### Scenarios, sharing, signing out
 
+* **Group scenarios:** right-click a tab → *Group → New group…* (or `⋯ → This scenario → Put in a group…`). A group is a folder of tabs with a name. **Click its name to minimise** it (only the name and a count stay; the scenario you are on stays visible) and click again to maximise.
+  Right-click the name for *Rename*, *New scenario in this group*, *Move left / right*, *Minimise / Maximise all groups* and *Ungroup*. Drag a tab into a group to join it or out to leave. Groups are saved with your settings, so every device shows them.
 * **Delete a scenario:** `⋯ → This scenario → Delete this scenario…` (or right-click its tab). It goes to the Trash with its tiles
   and can be restored for 30 days. The last scenario cannot be deleted.
 * **Share a scenario:** `⋯ → Share this scenario…` → *New share link*. Pick a name (the link becomes

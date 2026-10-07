@@ -17,7 +17,10 @@ sketch board, emoji picker for toolbox links, enlarge/restore for every tile.
 **Round 3** built and tested (`tests/v3.cjs`): gadgets are modules (folder + manifest + class, bundled by `assets.php`); Writer
 (rich text / HTML + JS run sandboxed / code; double-click or double-tap empty space adds one); YouTube playlist; Toolbox *Open all* +
 icon view; mp3 recognised by name; embed frame check + sandboxed copy + YouTube referrer fix (Error 153); delete scenario; sign out on
-all devices (session epoch); password + expiry share links at `/<name>` (read-only visitors). Next work = whatever the user asks.
+all devices (session epoch); password + expiry share links at `/<name>` (read-only visitors).
+**Round 4** built and tested (`tests/v4.cjs`): the Writer's rich text is now a CKEditor-style editor (`public/js/editor.js` + `css/editor.css`, shared as `HB.editor`);
+new **Writer folder** gadget (`library`: pages, code pages, folders, drag, filter, search; a Writer can be moved into one); **scenario groups**
+(a named folder of tabs you minimise/maximise; setting `scenario_groups`, code in `app.js`). Next work = whatever the user asks.
 
 ## Layout
 ```
@@ -32,9 +35,9 @@ public/    → web root of the subdomain (zip: web/)       private/ → outside 
   setup.php  host check + passphrase hash (404 once set)    src/shares.php  share links: unlock, scope, state
   _boot.php  finds the private folder                       src/fetch.php   SSRF-safe hb_fetch, cache, text clean
   gadgets/<type>/ manifest.json gadget.js gadget.css README  src/setup.php   host checks (web + CLI)
-  js/ css/ vendor/ (GridStack 11, SortableJS 1)             gadgets/<type>.php  a gadget's server actions
+  js/ css/ vendor/ (GridStack 11, SortableJS 1)  js/editor.js = HB.editor (rich + code editor, sanitizer)             gadgets/<type>.php  a gadget's server actions
                                                             bin/            check-host.php, hash-passphrase.php
-schema.sql  9 tables      tests/  api.cjs, e2e.cjs, gadgets.cjs, v3.cjs      tools/build-zip.py  → dist/*.zip
+schema.sql  9 tables      tests/  api.cjs, e2e.cjs, gadgets.cjs, v3.cjs, v4.cjs      tools/build-zip.py  → dist/*.zip
 ```
 Private folder is found via `HB_PRIVATE_DIR`, a `public/.private-path` file, or `../homebase-private`, `../private` (up to 3 levels).
 
@@ -49,9 +52,10 @@ tiles with `settings.shared_from = <tile id>` are **mirror tiles** (same content
 **`entries`** serves the richer tiles (`kind` must match the tile type: manifests' `entryKinds`, `hb_entry_tile()`; `searchKinds` = what Ctrl+K searches): `card` (a=front, b=back, `due_at`, data={ivl,ease,reps,lapses,first}),
 `quote` (a=text, b=source, data={author,year,page,url}), `reading` (a=title, b=url, data={status,author,note}), `habit` (a=habit id, `day`, num 1/0 — toggled, never deleted),
 `time` (a=label, `day`, num=seconds), `note` (a=Markdown, one row per tile), `doc` (Writer: a=HTML/code, data.mode rich|web|code, one per mode),
-`video` (YouTube: a=title, b=url, data={vid,list,author}). `thoughts` has no `colour` column. `day` rows older than 400 days stay in the DB but are not sent in `state`.
+`video` (YouTube: a=title, b=url, data={vid,list,author}), `page` (Writer folder: a=HTML/code, b=title, `num`=parent folder id (0 = top), data={t:page|code|folder,lang,open}). `thoughts` has no `colour` column. `day` rows older than 400 days stay in the DB but are not sent in `state`.
 The gateway creates missing tables itself from `schema.sql` (`hb_ensure_schema`). Datetime columns MUST go through `hb_row` ISO conversion (`due_at` once leaked a
 zone-less string, which browsers read as local time: wrong by 8 h in Singapore, UTC+8). Sketch = one `files` row per `sketch` tile, replaced in place via `upload` + `replace_id`.
+**Scenario groups** live in the `settings` key `scenario_groups` = `{"groups":[{id,name,collapsed}],"of":{"<scenario id>":"<group id>"}}` (no schema change; `app.groupData()/editGroups()`; tabs show in `app.displayItems()` order, keys 1-9 follow it).
 Other tiles keep their data in `tiles.settings`: To-do buckets live in the tile's `settings.buckets` (ids urgent/later/brainoff/none + custom); countdown dates in `settings.items`.
 
 ## API (public/api.php) — all JSON
@@ -97,9 +101,10 @@ node tests/api.cjs                                 # gateway rules (needs mysql 
 node tests/e2e.cjs                                 # browser e2e (Playwright + Chromium; fresh/empty DB)
 node tests/gadgets.cjs                             # extra tiles; needs the 2nd server + fake feeds (tests/README.md); runs in UTC+8
 node tests/v3.cjs                                  # round 3 (writer, youtube, shares, sign-out-all…); 2nd server; Asia/Singapore
+node tests/v4.cjs                                  # round 4 (editor, Writer folder, scenario groups); main server; Asia/Singapore
 python3 tools/build-zip.py                         # dist/homebase-task.francistsoi.com.zip (never includes .env or storage data)
 ```
-Run all four tests before committing a behaviour change (empty the DB and `storage/cache` before each browser suite);
+Run all five tests before committing a behaviour change (empty the DB and `storage/cache` before each browser suite);
 rebuild and commit the zip when public/ or private/ changes.
 
 ## Rules of the house

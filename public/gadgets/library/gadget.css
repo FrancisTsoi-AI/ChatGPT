@@ -1,0 +1,47 @@
+/* Writer folder gadget (the editor is styled in css/editor.css) */
+.lib { position: relative; display: flex; height: 100%; min-height: 0; gap: 10px; container-type: inline-size; }
+.lib-side { flex: none; width: 220px; display: flex; flex-direction: column; min-height: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--card2); padding: 6px; }
+.lib.side-off .lib-side { display: none; }
+.lib-side-top { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+.lib-filter { flex: 1; min-width: 0; padding: 4px 8px !important; height: 28px; font-size: 13px; }
+.lib-tree { flex: 1; min-height: 0; overflow: auto; }
+.lib-list, .lib-kids { list-style: none; margin: 0; padding: 0; }
+.lib-kids { padding-left: 14px; margin-left: 9px; border-left: 1px solid var(--line); min-height: 6px; }
+.lib-kids:empty { min-height: 24px; }
+.lib-kids:empty::before { content: "empty"; color: var(--muted); font-size: 11px; padding: 4px 8px; display: block; opacity: .7; }
+.lib-item:not(.open) > .lib-kids { display: none; }
+.lib.filtering .lib-item > .lib-kids { display: block !important; }
+.lib-row { display: flex; align-items: center; gap: 4px; padding: 4px 4px; border-radius: 8px; cursor: pointer; user-select: none; -webkit-user-select: none; }
+.lib-row:hover { background: var(--hover); }
+.lib-row:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+.lib-row.active { background: color-mix(in srgb, var(--brand) 16%, transparent); font-weight: 600; }
+.lib-chev { width: 12px; flex: none; font-size: 10px; color: var(--muted); transition: transform .12s; text-align: center; }
+.lib-item.open > .lib-row .lib-chev { transform: rotate(90deg); }
+.lib-ico { flex: none; font-size: 14px; }
+.lib-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lib-more { flex: none; border: 0; background: transparent; border-radius: 6px; width: 22px; height: 22px; padding: 0; color: var(--muted); opacity: 0; }
+.lib-row:hover .lib-more, .lib-row:focus-within .lib-more { opacity: 1; }
+.lib-more:hover { background: var(--hover); color: var(--text); }
+@media (hover: none) { .lib-more { opacity: .6; } }
+.lib-none { padding: 8px; }
+.lib-item.sortable-ghost > .lib-row, .lib-item.drag-ghost > .lib-row { opacity: .4; }
+.lib-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+.lib-head { flex: none; display: flex; align-items: center; gap: 8px; }
+.lib-headtext { flex: 1; min-width: 0; }
+.lib-crumbs { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lib-title { width: 100%; border: 0 !important; background: transparent !important; box-shadow: none !important; padding: 2px 0 !important; font-size: 20px; font-weight: 700; line-height: 1.25; margin: 0; outline: none; }
+.lib-title:focus { outline: none !important; box-shadow: 0 2px 0 var(--brand) !important; border-radius: 0 !important; }
+.lib-title::placeholder { color: var(--muted); font-weight: 500; }
+.lib-title.ro { overflow-wrap: anywhere; }
+.lib-status { margin-left: auto; }
+.lib-empty { flex: 1; display: grid; place-content: center; text-align: center; gap: 8px; }
+.lib-empty-btns { display: flex; gap: 8px; justify-content: center; }
+.lib-toggle { flex: none; }
+.lib-main > .wr-ed, .lib-main > .wr-code { flex: 1; }
+/* narrow tile: the page list slides over the page */
+@container (max-width: 559px) {
+  .lib-side { position: absolute; z-index: 20; left: 0; top: 46px; bottom: 0; width: min(280px, 86%); display: none; box-shadow: 0 10px 30px rgba(0, 0, 0, .3); background: var(--card); }
+  .lib.side-open .lib-side { display: flex; }
+  .lib.side-off .lib-side { display: none; }
+}
+@container (min-width: 560px) { .lib.side-open .lib-side { display: flex; } }

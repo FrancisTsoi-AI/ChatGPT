@@ -50,14 +50,14 @@ const fake = http.createServer((req, res) => {
   section('gadgets are modules');
   const bundle = await page.evaluate(async () => { const r = await fetch(document.querySelector('script[src^="assets.php?b=js"]').src); return { cc: r.headers.get('cache-control'), body: await r.text() }; });
   const n = (bundle.body.match(/HB\.gadgets\.addManifest\(/g) || []).length;
-  ok(n === 22, 'the bundle carries all 22 gadget folders, each with its manifest (' + n + ')');
+  ok(n === 23, 'the bundle carries all 23 gadget folders, each with its manifest (' + n + ')');
   ok(/immutable/.test(bundle.cc), 'the versioned bundle may be cached for a year');
   const reg = await page.evaluate(() => {
     const types = HB.gadgets.types();
     const t = HB.store.data.tiles[0];
     return { types, isGadget: HB.gadgets.instance(t) instanceof HB.Gadget, groups: [...new Set(types.map((x) => HB.typeInfo[x].group))] };
   });
-  ok(reg.types.length === 22 && reg.isGadget, 'every tile is driven by an instance of a class that extends HB.Gadget');
+  ok(reg.types.length === 23 && reg.isGadget, 'every tile is driven by an instance of a class that extends HB.Gadget');
   ok(JSON.stringify(reg.groups) === JSON.stringify(['Everyday', 'Writing', 'Study', 'Focus', 'Web', 'Files & media']), 'the + Tile menu groups come from the manifests');
 
   // ======================================================================================== embed
@@ -143,7 +143,8 @@ const fake = http.createServer((req, res) => {
   await page.keyboard.type('Big idea');
   await page.keyboard.press('Control+a');
   await T(wr).locator('.wr-b.b').click();
-  await T(wr).locator('.wr-block').selectOption('h2');
+  await T(wr).locator('.wr-dd-block').click();
+  await page.locator('.wr-pop-item', { hasText: 'Heading 2' }).click();
   await page.waitForFunction((id) => HB.store.entriesOf(id, 'doc').some((e) => /<h2>.*Big idea/.test(e.a)), wr, { timeout: 6000 });
   ok(true, 'toolbar formatting (bold, heading) is saved as HTML');
   await page.evaluate(() => {

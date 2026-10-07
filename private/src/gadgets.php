@@ -18,9 +18,9 @@ const HB_GADGET_GROUPS = ['Everyday', 'Writing', 'Study', 'Focus', 'Web', 'Files
 const HB_UPLOAD_RULES = ['any', 'audio', 'png', 'image'];
 
 /** Core scripts, in load order, around the gadget code. */
-const HB_CORE_JS_BEFORE = ['js/util.js', 'js/api.js', 'js/store.js', 'js/ui.js', 'js/emoji.js', 'js/md.js', 'js/gadget.js', 'js/kit.js', 'js/filekit.js'];
+const HB_CORE_JS_BEFORE = ['js/util.js', 'js/api.js', 'js/store.js', 'js/ui.js', 'js/emoji.js', 'js/md.js', 'js/gadget.js', 'js/kit.js', 'js/filekit.js', 'js/editor.js'];
 const HB_CORE_JS_AFTER = ['js/upload.js', 'js/grid.js', 'js/trash.js', 'js/search.js', 'js/shares.js', 'js/app.js'];
-const HB_CORE_CSS = ['css/app.css'];
+const HB_CORE_CSS = ['css/app.css', 'css/editor.css'];
 
 function hb_public_dir(): ?string
 {

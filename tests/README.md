@@ -26,6 +26,11 @@ BASE=http://127.0.0.1:8082 PLAYWRIGHT_PATH=... CHROME=... node tests/gadgets.cjs
 #    Same second server; also needs the mysql CLI (to expire a link). Browser runs in Asia/Singapore time.
 BASE=http://127.0.0.1:8082 STORAGE=private/storage MYSQL="mysql homebase" PLAYWRIGHT_PATH=... CHROME=... node tests/v3.cjs
 ```
+```bash
+# 6. round 4: the document editor (Markdown shortcuts, toolbar, tables, links, pictures, find/replace, source, undo), the Writer folder
+#    (pages, folders, drag, filter, search, move a Writer in, share page) and scenario groups. Main server, no fake sites needed.
+BASE=http://127.0.0.1:8080 PLAYWRIGHT_PATH=... CHROME=... node tests/v4.cjs
+```
 Before each browser suite, empty the tables **and** `private/storage/cache/` (the server caches what it fetched for
 6–24 h by address, so a cached answer from another suite's fake server would be served).
 
@@ -34,6 +39,6 @@ The main server (:8080, without it) is the one `api.cjs` uses to prove the guard
 
 Environment: `BASE` (default `http://localhost:8080`), `PASS` (default `test-passphrase-123`; the dev
 `private/.env` must hold its hash). `api.cjs` also needs the `mysql` CLI to age rows for the 30-day purge.
-`e2e.cjs`, `gadgets.cjs` and `v3.cjs` expect a freshly seeded (empty) database: truncate the tables first, e.g.
+`e2e.cjs`, `gadgets.cjs`, `v3.cjs` and `v4.cjs` expect a freshly seeded (empty) database: truncate the tables first, e.g.
 `mysql homebase -e "SET FOREIGN_KEY_CHECKS=0; TRUNCATE files; TRUNCATE links; TRUNCATE tasks; TRUNCATE thoughts; TRUNCATE entries; TRUNCATE shares; TRUNCATE tiles; TRUNCATE scenarios; TRUNCATE settings; SET FOREIGN_KEY_CHECKS=1"`
 and delete the files in `private/storage/{files,ratelimit,tmp,cache}`.
