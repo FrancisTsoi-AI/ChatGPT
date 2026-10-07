@@ -35,7 +35,7 @@ const fake = http.createServer((req, res) => {
   if (u.pathname === '/evil.xml') return send('<?xml version="1.0"?><!DOCTYPE x [<!ENTITY a SYSTEM "file:///etc/passwd">]><rss><channel><title>&a;</title></channel></rss>', 'application/xml');
   if (u.pathname === '/bad.txt') return send('hello');
   if (u.pathname === '/page.html') return send('<html><head><title>Fake Page Title</title></head><body>hi</body></html>', 'text/html');
-  if (u.pathname === '/geocode') return send(JSON.stringify({ results: [{ name: 'Hong Kong', admin1: '', country: 'China', latitude: 22.3193, longitude: 114.1694 }] }), 'application/json');
+  if (u.pathname === '/geocode') return send(JSON.stringify({ results: [{ name: 'Singapore', admin1: '', country: 'Singapore', latitude: 1.2897, longitude: 103.8501 }] }), 'application/json');
   if (u.pathname === '/forecast') {
     const f = u.searchParams.get('temperature_unit') === 'fahrenheit';
     const t = (c) => (f ? Math.round((c * 9 / 5 + 32) * 10) / 10 : c);
@@ -58,8 +58,8 @@ async function drag(page, from, to, opt = {}) {
 (async () => {
   await new Promise((r) => fake.listen(9099, '127.0.0.1', r));
   const browser = await chromium.launch({ executablePath: process.env.CHROME || undefined, args: ['--no-sandbox'] });
-  // Hong Kong time (UTC+8) on purpose: local-vs-UTC mistakes show up here but not in a UTC browser
-  const ctx = await browser.newContext({ viewport: { width: 1400, height: 900 }, acceptDownloads: true, timezoneId: 'Asia/Hong_Kong', locale: 'en-GB' });
+  // Singapore time (UTC+8) on purpose: local-vs-UTC mistakes show up here but not in a UTC browser
+  const ctx = await browser.newContext({ viewport: { width: 1400, height: 900 }, acceptDownloads: true, timezoneId: 'Asia/Singapore', locale: 'en-GB' });
   await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE });
   const page = await ctx.newPage();
   const errors = [];
@@ -360,8 +360,9 @@ async function drag(page, from, to, opt = {}) {
   await T(em).locator('input[data-key="embed-url"]').fill('https://www.youtube.com/playlist?list=PLabc123XYZ_-');
   await T(em).locator('input[data-key="embed-url"]').press('Enter');
   await T(em).locator('iframe').waitFor();
-  const fr = await T(em).locator('iframe').evaluate((f) => ({ src: f.src, sandbox: f.getAttribute('sandbox'), ref: f.referrerPolicy }));
-  ok(fr.src.startsWith('https://www.youtube-nocookie.com/embed/videoseries') && /allow-scripts/.test(fr.sandbox) && fr.ref === 'no-referrer', 'the tile shows a sandboxed, no-referrer iframe');
+  const fr = await T(em).locator('iframe').evaluate((f) => ({ src: f.src, sandbox: f.getAttribute('sandbox'), ref: f.getAttribute('referrerpolicy') }));
+  ok(fr.src.startsWith('https://www.youtube-nocookie.com/embed/videoseries') && /allow-scripts/.test(fr.sandbox) && fr.ref === 'strict-origin-when-cross-origin',
+    'the tile shows a sandboxed iframe that tells YouTube only the site origin (without it YouTube shows "Error 153")');
   ok(/ads/i.test(await T(em).locator('.embed-foot').textContent()), 'the tile is upfront that YouTube controls ads');
   const csp = await page.evaluate(async () => (await fetch('/')).headers.get('content-security-policy'));
   ok(/frame-src 'self' https:/.test(csp), 'the page policy allows https frames (and nothing else)');
@@ -427,7 +428,7 @@ async function drag(page, from, to, opt = {}) {
   // ===================================================================================== weather
   section('weather');
   const wx = await addTile('weather');
-  await T(wx).locator('input[data-key="city"]').fill('Hong Kong');
+  await T(wx).locator('input[data-key="city"]').fill('Singapore');
   await T(wx).locator('.weather-setup .btn').click();
   await T(wx).locator('.place').first().waitFor();
   await T(wx).locator('.place').first().click();

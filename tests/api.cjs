@@ -168,19 +168,24 @@ const resetLimit = () => fs.readdirSync(path.join(STORAGE, 'ratelimit')).filter(
 
   console.log('\n# outbound fetch is locked down');
   const anon2 = new Client();
-  for (const route of ['feed&url=http://example.com/x', 'title&url=http://example.com/x', 'geocode&q=hong', 'weather&lat=1&lon=1']) {
+  for (const route of ['g/feeds/feed&url=http://example.com/x', 'g/reading/title&url=http://example.com/x', 'g/weather/geocode&q=singapore', 'g/weather/weather&lat=1&lon=1']) {
     r = await anon2.req(route);
     ok(r.status === 401, route.split('&')[0] + ' needs a login');
   }
   const bad = ['http://127.0.0.1/x', 'http://localhost/x', 'http://[::1]/x', 'http://10.0.0.5/x', 'http://192.168.1.1/x', 'http://169.254.169.254/latest/meta-data/', 'http://0.0.0.0/', 'file:///etc/passwd', 'ftp://example.com/x', 'gopher://example.com/', 'http://user:pw@example.com/', 'http://example.com:22/', 'javascript:alert(1)'];
   for (const u of bad) {
-    r = await a.req('feed&url=' + encodeURIComponent(u));
+    r = await a.req('g/feeds/feed&url=' + encodeURIComponent(u));
     ok(r.status >= 400 && r.status < 500 && !/ssh|root:/i.test(JSON.stringify(r.json)), 'feed refuses ' + u + ' (' + r.status + ': ' + r.json.error + ')');
   }
-  r = await a.req('title&url=' + encodeURIComponent('http://169.254.169.254/'));
+  r = await a.req('g/reading/title&url=' + encodeURIComponent('http://169.254.169.254/'));
   ok(r.status === 400, 'the page-title lookup is guarded the same way');
-  r = await a.req('weather&lat=999&lon=0');
+  r = await a.req('g/weather/weather&lat=999&lon=0');
   ok(r.status === 400, 'weather rejects impossible coordinates');
+
+  r = await a.req('g/nosuch/thing');
+  ok(r.status === 404, 'an unknown gadget action is a clean 404');
+  r = await a.req('g/clock/anything');
+  ok(r.status === 404, 'a gadget without server actions answers 404');
 
   console.log('\n# sketch uploads');
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
