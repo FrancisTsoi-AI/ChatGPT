@@ -2,8 +2,10 @@
 declare(strict_types=1);
 
 /**
- * The Gadgets page, like WordPress plug-ins: install or update a gadget from a .zip, switch one off or
- * on, download one as a .zip, delete one. Owner only, and every write needs the CSRF token.
+ * The Gadgets & updates page, like WordPress's Plugins and Updates screens: install or update a gadget
+ * from a .zip, add built-in gadgets from the catalog with one click, switch one off or on, download one
+ * as a .zip, delete one, and update Home Base itself by dropping its one file (homebase.zip or
+ * homebase-setup.php, see package.php). Owner only, and every write needs the CSRF token.
  *
  * Installing runs someone else's code with your rights (its script inside your page, its server.php
  * on your server), so:
@@ -53,19 +55,7 @@ function hb_gadget_dir_size(string $dir): array
 /** Delete a folder and everything in it; links are removed, never followed. */
 function hb_rrmdir(string $path): void
 {
-    if (is_link($path) || is_file($path)) {
-        @unlink($path);
-        return;
-    }
-    if (!is_dir($path)) {
-        return;
-    }
-    foreach (scandir($path) ?: [] as $f) {
-        if ($f !== '.' && $f !== '..') {
-            hb_rrmdir($path . '/' . $f);
-        }
-    }
-    @rmdir($path);
+    hbp_rrmdir($path);
 }
 
 /** Leftovers: unconfirmed uploads older than an hour, and replaced or deleted versions. */
@@ -80,6 +70,180 @@ function hb_gadget_clean_stages(): void
     foreach (array_merge(glob($base . '/.old-*') ?: [], glob($base . '/.del-*') ?: []) as $d) {
         hb_rrmdir($d);
     }
+    foreach (glob(hb_storage('tmp') . '/core-*.zip') ?: [] as $f) { // Home Base updates dropped but not confirmed
+        if (filemtime($f) < time() - 3600) {
+            @unlink($f);
+        }
+    }
+}
+
+// ---- the catalog: built-in gadgets shipped with Home Base (homebase-private/catalog/<type>.zip) ----
+
+/** type => ['file' => zip path, 'm' => manifest] for every gadget in the catalog. */
+function hb_gadget_catalog(): array
+{
+    $out = [];
+    foreach (glob(HB_PRIVATE . '/catalog/*.zip') ?: [] as $f) {
+        $m = hbp_gadget_manifest($f);
+        if ($m && preg_match(HB_GADGET_TYPE_RE, $m['type']) && basename($f, '.zip') === $m['type'] && hb_gadget_manifest_problem($m) === null) {
+            $out[$m['type']] = ['file' => $f, 'm' => $m];
+        }
+    }
+    return $out;
+}
+
+/** Put a checked, staged gadget folder in place (replacing an older version). True if it was an update. */
+function hb_gadget_place(string $stage, string $type): bool
+{
+    try {
+        $updated = hbp_swap_in($stage, hb_gadgets_dir() . '/' . $type);
+    } catch (HbpError $e) {
+        throw new HttpError(500, $e->getMessage() . ' (is homebase-private/gadgets writable?)');
+    }
+    hb_gadget_reset();
+    return $updated;
+}
+
+/** Install a built-in gadget from the catalog, or update it to the catalog's version (one click, no zip). */
+function hb_gadget_from_catalog(array $in): array
+{
+    $type = (string) ($in['type'] ?? '');
+    $c = hb_gadget_catalog()[$type] ?? null;
+    if (!$c) {
+        throw new HttpError(404, 'That gadget is not in the catalog');
+    }
+    if (!hb_gadget_dir_writable()) {
+        throw new HttpError(409, 'The folder homebase-private/gadgets cannot be written by PHP. Make it writable (permissions 755 or 775).');
+    }
+    hb_gadget_clean_stages();
+    $stage = hb_gadgets_dir() . '/.stage-' . bin2hex(random_bytes(12));
+    try {
+        $m = hb_gadget_unpack($c['file'], $stage); // the same checks as an uploaded zip
+    } catch (Throwable $e) {
+        hb_rrmdir($stage);
+        throw $e;
+    }
+    $updated = hb_gadget_place($stage, $type);
+    return ['ok' => true, 'type' => $type, 'updated' => $updated, 'version' => (string) ($m['version'] ?? '1.0.0')];
+}
+
+// ---- Home Base itself: the same drop box takes homebase.zip / homebase-setup.php ---------------------
+
+/** Does this zip hold a Home Base package (homebase.json) rather than a gadget? */
+function hb_is_core_package(string $file): bool
+{
+    $za = new ZipArchive();
+    if ($za->open($file) !== true) {
+        return false;
+    }
+    $found = false;
+    for ($i = 0; $i < min($za->numFiles, 5000) && !$found; $i++) {
+        $found = (bool) preg_match('#^([A-Za-z0-9_.-]+/)?homebase\.json$#', (string) $za->getNameIndex($i));
+    }
+    $za->close();
+    return $found;
+}
+
+/** The running version: what the last install / update recorded (core.json), else the code's own. */
+function hb_core_version(): string
+{
+    return hbp_installed_version(HB_PRIVATE) ?? HB_VERSION;
+}
+
+/** Why Home Base cannot update itself here (null = it can). */
+function hb_core_update_problem(): ?string
+{
+    $pub = hb_public_dir();
+    if ($pub === null) {
+        return 'The web folder was not found';
+    }
+    if (is_dir(dirname($pub) . '/.git')) {
+        return 'This copy of Home Base runs from a source checkout; update it with git, not here.';
+    }
+    foreach ([$pub, HB_PRIVATE, HB_PRIVATE . '/src'] as $d) {
+        if (!is_writable($d)) {
+            return 'PHP cannot write to ' . $d . ', so Home Base cannot update itself. Make the web folder and homebase-private writable (permissions 755).';
+        }
+    }
+    return null;
+}
+
+/** Step 1 for an update of Home Base: check the package, keep it aside, describe what will change. */
+function hb_core_stage(string $tmp): array
+{
+    if (($p = hb_core_update_problem()) !== null) {
+        throw new HttpError(409, $p);
+    }
+    try {
+        $pkg = hbp_open($tmp);
+    } catch (HbpError $e) {
+        throw new HttpError(400, $e->getMessage());
+    }
+    $to = (string) $pkg['info']['version'];
+    $installed = hb_gadget_all();
+    $catalog = hb_gadget_catalog();
+    $updates = [];
+    $new = [];
+    $probe = hb_storage('tmp') . '/probe-' . bin2hex(random_bytes(6)) . '.zip';
+    foreach ($pkg['cat'] as $type => $i) {
+        file_put_contents($probe, hbp_read($pkg['za'], $i));
+        $m = hbp_gadget_manifest($probe);
+        $v = (string) ($m['version'] ?? '1.0.0');
+        if (isset($installed[$type])) {
+            if (version_compare($v, $installed[$type]['version'], '>')) {
+                $updates[] = ['type' => $type, 'label' => (string) ($m['label'] ?? $type), 'from' => $installed[$type]['version'], 'to' => $v];
+            }
+        } elseif (!isset($catalog[$type])) {
+            $new[] = ['type' => $type, 'label' => (string) ($m['label'] ?? $type), 'icon' => (string) ($m['icon'] ?? ''), 'version' => $v];
+        }
+    }
+    @unlink($probe);
+    $pkg['za']->close();
+    $token = bin2hex(random_bytes(12));
+    if (!@copy($tmp, hb_storage('tmp') . '/core-' . $token . '.zip')) {
+        throw new HttpError(500, 'Could not keep the update file in homebase-private/storage/tmp');
+    }
+    $_SESSION['gadget_stage'][$token] = ['kind' => 'core', 'type' => 'homebase', 'at' => time()];
+    $notes = ['Home Base\'s program files are replaced. Your tiles, files, settings, share links and the gadgets you added are kept.'];
+    $running = hb_core_version();
+    if (version_compare($to, $running, '<')) {
+        $notes[] = 'This is an OLDER version than the one running (' . $running . ').';
+    } elseif (version_compare($to, $running, '==')) {
+        $notes[] = 'This is the version already running; installing it again repairs the program files.';
+    }
+    return ['token' => $token, 'preview' => [
+        'kind' => 'core', 'type' => 'homebase', 'label' => 'Home Base', 'icon' => '🏠', 'version' => $to, 'author' => 'Home Base',
+        'description' => 'The platform itself: page, gateway and the built-in gadget catalog.', 'server' => true,
+        'files' => count($pkg['web']) + count($pkg['priv']) + count($pkg['cat']), 'bytes' => (int) filesize($tmp), 'tiles' => 0,
+        'current' => ['version' => $running, 'on' => true], 'updates' => $updates, 'new' => $new, 'notes' => $notes,
+    ]];
+}
+
+/** Step 2 for an update of Home Base: apply the kept package (see hbp_apply: journaled, rolled back on failure). */
+function hb_core_install(string $token): array
+{
+    $file = hb_storage('tmp') . '/core-' . $token . '.zip';
+    if (!is_file($file)) {
+        throw new HttpError(410, 'That upload has expired. Drop the file again.');
+    }
+    if (($p = hb_core_update_problem()) !== null) {
+        throw new HttpError(409, $p);
+    }
+    try {
+        $pkg = hbp_open($file);
+        try {
+            $report = hbp_apply($pkg, (string) hb_public_dir(), HB_PRIVATE, ['gadgets' => hb_gadgets_dir()]);
+        } finally {
+            $pkg['za']->close();
+        }
+    } catch (HbpError $e) {
+        throw new HttpError(500, $e->getMessage());
+    } finally {
+        @unlink($file);
+        unset($_SESSION['gadget_stage'][$token]);
+    }
+    hb_gadget_reset();
+    return ['ok' => true, 'core' => true, 'type' => 'homebase', 'version' => $report['to'], 'updated' => true, 'report' => $report];
 }
 
 function hb_gadget_tile_counts(): array
@@ -95,23 +259,36 @@ function hb_gadget_tile_counts(): array
 function hb_gadget_admin_list(): array
 {
     $counts = hb_gadget_tile_counts();
+    $catalog = hb_gadget_catalog();
+    $all = hb_gadget_all();
     $list = [];
-    foreach (hb_gadget_all() as $type => $m) {
+    foreach ($all as $type => $m) {
         [$files, $bytes] = hb_gadget_dir_size($m['_dir']);
         $list[] = [
             'type' => $type, 'label' => $m['label'], 'icon' => $m['icon'], 'version' => $m['version'],
             'author' => (string) ($m['author'] ?? ''), 'description' => (string) ($m['description'] ?? ($m['hint'] ?? '')),
             'group' => (string) ($m['group'] ?? ''), 'on' => !$m['_off'], 'server' => $m['_server'],
             'tiles' => $counts[$type] ?? 0, 'files' => $files, 'bytes' => $bytes,
+            'update' => isset($catalog[$type]) && version_compare((string) ($catalog[$type]['m']['version'] ?? '0'), $m['version'], '>')
+                ? (string) $catalog[$type]['m']['version'] : null,
         ];
         unset($counts[$type]);
+    }
+    $available = []; // built-in gadgets you do not have: one click away
+    foreach ($catalog as $type => $c) {
+        if (!isset($all[$type])) {
+            $m = $c['m'];
+            $available[] = ['type' => $type, 'label' => (string) $m['label'], 'icon' => (string) $m['icon'], 'version' => (string) ($m['version'] ?? '1.0.0'),
+                'description' => (string) ($m['description'] ?? ($m['hint'] ?? '')), 'group' => (string) ($m['group'] ?? '')];
+        }
     }
     $missing = []; // tiles whose gadget is no longer installed
     foreach ($counts as $type => $n) {
         $missing[] = ['type' => $type, 'tiles' => $n];
     }
     return [
-        'gadgets' => $list, 'missing' => $missing, 'version' => HB_VERSION,
+        'gadgets' => $list, 'available' => $available, 'missing' => $missing, 'version' => hb_core_version(),
+        'core_update' => hb_core_update_problem(),
         'install' => hb_gadget_install_allowed(), 'writable' => hb_gadget_dir_writable(), 'zip' => class_exists('ZipArchive'),
         'max_mb' => (int) (HB_GADGET_ZIP_MAX / 1048576),
     ];
@@ -145,6 +322,9 @@ function hb_gadget_upload(): array
         throw new HttpError(413, 'A gadget .zip may be at most ' . (HB_GADGET_ZIP_MAX / 1048576) . ' MB');
     }
     hb_gadget_clean_stages();
+    if (hb_is_core_package((string) $f['tmp_name'])) { // homebase.zip or homebase-setup.php: an update of Home Base itself
+        return hb_core_stage((string) $f['tmp_name']);
+    }
     $token = bin2hex(random_bytes(12));
     $stage = $base . '/.stage-' . $token;
     try {
@@ -299,35 +479,22 @@ function hb_gadget_install(array $in): array
     $token = (string) ($in['token'] ?? '');
     $staged = $_SESSION['gadget_stage'][$token] ?? null;
     $stage = hb_gadgets_dir() . '/.stage-' . $token;
-    if (!preg_match('/^[a-f0-9]{24}$/', $token) || !is_array($staged) || $staged['at'] < time() - 3600 || !is_dir($stage)) {
+    $core = is_array($staged) && ($staged['kind'] ?? '') === 'core';
+    if (!preg_match('/^[a-f0-9]{24}$/', $token) || !is_array($staged) || $staged['at'] < time() - 3600 || (!$core && !is_dir($stage))) {
         throw new HttpError(410, 'That upload has expired. Drop the zip again.');
     }
     hb_reauth((string) ($in['passphrase'] ?? ''));
+    if ($core) {
+        return hb_core_install($token);
+    }
     $m = json_decode((string) @file_get_contents($stage . '/manifest.json'), true);
     if (hb_gadget_manifest_problem($m) !== null || $m['type'] !== $staged['type']) {
         throw new HttpError(400, 'The staged gadget changed. Drop the zip again.');
     }
     $type = $m['type'];
-    $target = hb_gadgets_dir() . '/' . $type;
-    $old = null;
-    if (file_exists($target) || is_link($target)) {
-        $old = hb_gadgets_dir() . '/.old-' . $type . '-' . bin2hex(random_bytes(4));
-        if (!@rename($target, $old)) {
-            throw new HttpError(500, 'Could not replace the installed version (is homebase-private/gadgets/' . $type . ' writable?)');
-        }
-    }
-    if (!@rename($stage, $target)) {
-        if ($old !== null) {
-            @rename($old, $target);
-        }
-        throw new HttpError(500, 'Could not move the gadget into place');
-    }
+    $updated = hb_gadget_place($stage, $type);
     unset($_SESSION['gadget_stage'][$token]);
-    if ($old !== null) {
-        hb_rrmdir($old);
-    }
-    hb_gadget_reset();
-    return ['ok' => true, 'type' => $type, 'updated' => $old !== null, 'version' => (string) ($m['version'] ?? '1.0.0')];
+    return ['ok' => true, 'type' => $type, 'updated' => $updated, 'version' => (string) ($m['version'] ?? '1.0.0')];
 }
 
 // ---- switch, delete, download --------------------------------------------------------------------

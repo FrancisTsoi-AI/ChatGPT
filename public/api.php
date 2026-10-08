@@ -80,6 +80,9 @@ try {
     if ($route === 'gadgets/install' && $method === 'POST') {
         hb_json(hb_gadget_install(hb_input()));
     }
+    if ($route === 'gadgets/catalog' && $method === 'POST') {
+        hb_json(hb_gadget_from_catalog(hb_input()));
+    }
     if ($route === 'gadgets/switch' && $method === 'POST') {
         hb_json(hb_gadget_switch(hb_input()));
     }

@@ -294,6 +294,12 @@ kbd { font: 11px ui-monospace, monospace; border: 1px solid var(--line); border-
 .ga-warn.strong { border-left-color: var(--danger); }
 .ga-warn p { margin: 4px 0; }
 .gadget-missing p { margin: 0 0 8px; }
+.ga-version { margin-bottom: 8px; }
+.ga-h { font-size: 14px; margin: 4px 0 6px; }
+.ga-sechead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 14px 0 4px; }
+.ga-sechead h3 { margin: 0; font-size: 14px; }
+.ga-badge.new { background: var(--brand); color: var(--brand-ink); }
+.ga-sub { margin: 8px 0; } .ga-sub ul { margin: 4px 0 0 18px; padding: 0; }
 @media (max-width: 600px) { .ga-row { flex-wrap: wrap; } .ga-btns { width: 100%; justify-content: flex-start; } }
 
 /* share page: read-only, so the editing controls are hidden */

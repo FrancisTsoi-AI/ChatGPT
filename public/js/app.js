@@ -256,7 +256,7 @@
         { label: 'Sign out on all devices', hint: 'security', run: () => this.logoutAll() },
         { label: 'Delete this scenario', hint: 'goes to the trash', run: () => this.deleteScenario(this.scenarioId) },
         { label: 'Share this scenario', hint: 'link + password', run: () => HB.shares.open(this.scenarioId) },
-        { label: 'Gadgets: install, update, switch off or delete', hint: 'plug-ins', run: () => HB.gadgetAdmin.open() },
+        { label: 'Gadgets & updates: install, update, switch off or delete; update Home Base', hint: 'plug-ins', run: () => HB.gadgetAdmin.open() },
       );
       return cmds;
     },
@@ -319,7 +319,7 @@
         { label: 'Redo', hint: 'Ctrl+Shift+Z', disabled: !HB.history.canRedo(), onClick: () => HB.history.redo() },
         { sep: true },
         { label: 'Trash…', onClick: () => HB.trash.open() },
-        { label: 'Gadgets…', hint: 'add · remove', onClick: () => HB.gadgetAdmin.open() },
+        { label: 'Gadgets & updates…', hint: 'add · remove · update', onClick: () => HB.gadgetAdmin.open() },
         { label: 'Share this scenario…', onClick: () => HB.shares.open(this.scenarioId) },
         { label: 'All share links…', onClick: () => HB.shares.open(null) },
         { label: 'This scenario', children: [

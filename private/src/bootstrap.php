@@ -9,6 +9,7 @@ require __DIR__ . '/data.php';
 require __DIR__ . '/files.php';
 require __DIR__ . '/fetch.php';
 require __DIR__ . '/gadgets.php';
+require __DIR__ . '/package.php';
 require __DIR__ . '/gadget_admin.php';
 require __DIR__ . '/shares.php';
 
