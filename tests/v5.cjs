@@ -94,7 +94,7 @@ const basic = (type, files) => zip(Object.assign({ 'manifest.json': manifest({ t
     return { status: r.status, json: await r.json().catch(() => null) };
   }, [buf.toString('base64'), name || 'gadget.zip']);
   const installZip = async (buf) => { const u = await up(buf); return u.status === 200 ? post('gadgets/install', { token: u.json.token, passphrase: PASS }) : u; };
-  const openGadgets = async () => { await page.click('#btn-menu'); await page.locator('.menu-item', { has: page.locator('.menu-label', { hasText: /^Gadgets…$/ }) }).click(); await page.waitForSelector('.ga-row'); };
+  const openGadgets = async () => { await page.click('#btn-menu'); await page.locator('.menu-item', { has: page.locator('.menu-label', { hasText: /^Gadgets & updates…$/ }) }).click(); await page.waitForSelector('.ga-row'); };
   const row = (type) => page.locator(`.ga-row[data-type="${type}"]`);
 
   await page.goto(BASE + '/'); await page.fill('#pass', PASS); await page.click('button[type=submit]'); await page.waitForSelector('.tile');

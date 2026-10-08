@@ -1,6 +1,6 @@
 # Tests
 
-Six scripts, all plain Node (no framework). They need a **throw-away database** (they create and delete
+Seven scripts, all plain Node (no framework). They need a **throw-away database** (they create and delete
 data) and the dev server running.
 
 ```bash
@@ -37,6 +37,14 @@ BASE=http://127.0.0.1:8080 PLAYWRIGHT_PATH=... CHROME=... node tests/v4.cjs
 (cd public && HB_GADGETS_DIR=/tmp/hb-gadgets php -S 127.0.0.1:8084 -d upload_max_filesize=25M -d post_max_size=26M) &
 python3 tools/build-zip.py   # the test also checks every dist/gadgets/*.zip installs
 GADGETS_DIR=/tmp/hb-gadgets BASE=http://127.0.0.1:8084 STORAGE=private/storage PLAYWRIGHT_PATH=... CHROME=... node tests/v5.cjs
+```
+```bash
+# 8. round 6: the one-file installer and web updates. Builds real sites in a scratch folder with their own PHP servers
+#    (ports 8086-8088): a new site from dist/homebase-setup.php, updates by dropping a file, the built-in catalog, installer
+#    safety and expiry, and old sites (versions 1, 2 and 4, taken from git history) updated with the one file.
+#    Needs the mysql CLI with admin rights (it creates homebase_v6 / homebase_v6_old for the DB user in private/.env).
+python3 tools/build-zip.py
+PLAYWRIGHT_PATH=... CHROME=... node tests/v6.cjs
 ```
 Before each browser suite, empty the tables **and** `private/storage/cache/` (the server caches what it fetched for
 6–24 h by address, so a cached answer from another suite's fake server would be served).
