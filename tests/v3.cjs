@@ -48,9 +48,9 @@ const fake = http.createServer((req, res) => {
 
   // ======================================================================================== modules
   section('gadgets are modules');
-  const bundle = await page.evaluate(async () => { const r = await fetch(document.querySelector('script[src^="assets.php?b=js"]').src); return { cc: r.headers.get('cache-control'), body: await r.text() }; });
-  const n = (bundle.body.match(/HB\.gadgets\.addManifest\(/g) || []).length;
-  ok(n === 22, 'the bundle carries all 22 gadget folders, each with its manifest (' + n + ')');
+  const bundle = await page.evaluate(async () => { const r = await fetch(document.querySelector('script[src^="assets.php?b=core"]').src); return { cc: r.headers.get('cache-control'), body: await r.text(), scripts: document.querySelectorAll('script[data-gadget]').length }; });
+  const n = (bundle.body.match(/^HB\.gadgets\.addManifest\(/gm) || []).length;
+  ok(n === 22 && bundle.scripts === 22, 'the core bundle carries all 22 manifests, and each gadget loads as its own script (' + n + ', ' + bundle.scripts + ')');
   ok(/immutable/.test(bundle.cc), 'the versioned bundle may be cached for a year');
   const reg = await page.evaluate(() => {
     const types = HB.gadgets.types();
