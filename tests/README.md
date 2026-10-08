@@ -1,6 +1,6 @@
 # Tests
 
-Five scripts, all plain Node (no framework). They need a **throw-away database** (they create and delete
+Six scripts, all plain Node (no framework). They need a **throw-away database** (they create and delete
 data) and the dev server running.
 
 ```bash
@@ -27,11 +27,16 @@ BASE=http://127.0.0.1:8082 PLAYWRIGHT_PATH=... CHROME=... node tests/gadgets.cjs
 BASE=http://127.0.0.1:8082 STORAGE=private/storage MYSQL="mysql homebase" PLAYWRIGHT_PATH=... CHROME=... node tests/v3.cjs
 ```
 ```bash
-# 6. round 4: gadgets as plug-ins (install/update from zip, bad zips, isolation, switch off, delete, share limits).
+# 6. round 4: the document editor (Markdown shortcuts, toolbar, tables, links, pictures, find/replace, source, undo), the Writer folder
+#    (pages, folders, drag, filter, search, move a Writer in, share page) and scenario groups. Main server, no fake sites needed.
+BASE=http://127.0.0.1:8080 PLAYWRIGHT_PATH=... CHROME=... node tests/v4.cjs
+```
+```bash
+# 7. round 5: gadgets as plug-ins (install/update from zip, bad zips, isolation, switch off, delete, share limits).
 #    It installs and deletes gadgets, so its server uses a SCRATCH gadgets folder (the test refills it from private/gadgets):
 (cd public && HB_GADGETS_DIR=/tmp/hb-gadgets php -S 127.0.0.1:8084 -d upload_max_filesize=25M -d post_max_size=26M) &
 python3 tools/build-zip.py   # the test also checks every dist/gadgets/*.zip installs
-GADGETS_DIR=/tmp/hb-gadgets BASE=http://127.0.0.1:8084 STORAGE=private/storage PLAYWRIGHT_PATH=... CHROME=... node tests/v4.cjs
+GADGETS_DIR=/tmp/hb-gadgets BASE=http://127.0.0.1:8084 STORAGE=private/storage PLAYWRIGHT_PATH=... CHROME=... node tests/v5.cjs
 ```
 Before each browser suite, empty the tables **and** `private/storage/cache/` (the server caches what it fetched for
 6–24 h by address, so a cached answer from another suite's fake server would be served).
@@ -41,6 +46,6 @@ The main server (:8080, without it) is the one `api.cjs` uses to prove the guard
 
 Environment: `BASE` (default `http://localhost:8080`), `PASS` (default `test-passphrase-123`; the dev
 `private/.env` must hold its hash). `api.cjs` also needs the `mysql` CLI to age rows for the 30-day purge.
-`e2e.cjs`, `gadgets.cjs`, `v3.cjs` and `v4.cjs` expect a freshly seeded (empty) database: truncate the tables first, e.g.
+`e2e.cjs`, `gadgets.cjs`, `v3.cjs`, `v4.cjs` and `v5.cjs` expect a freshly seeded (empty) database: truncate the tables first, e.g.
 `mysql homebase -e "SET FOREIGN_KEY_CHECKS=0; TRUNCATE files; TRUNCATE links; TRUNCATE tasks; TRUNCATE thoughts; TRUNCATE entries; TRUNCATE shares; TRUNCATE tiles; TRUNCATE scenarios; TRUNCATE settings; SET FOREIGN_KEY_CHECKS=1"`
 and delete the files in `private/storage/{files,ratelimit,tmp,cache}`.

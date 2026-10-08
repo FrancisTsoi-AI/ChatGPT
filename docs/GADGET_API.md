@@ -108,6 +108,7 @@ error log. The Gadgets page refuses such a zip with the reason.
 | `sig(ctx)` | Return any JSON-able value. The body is rebuilt only when it changes. Return `undefined` (default) for "redraw when the tile's settings or any of its rows change". Narrow it when a redraw would interrupt something, e.g. the YouTube player returns only its list and player settings so a playing video doesn't restart. |
 | `keep(ctx)` | Return `true` to skip a pending redraw for now, e.g. while the user is typing or has unsaved strokes. When you are done, call `HB.board.markRendered(this.tileId)` (accept the current state as drawn) or `this.redraw()`. |
 | `destroy()` | Stop anything that outlives a body: audio, intervals not tied to a body. |
+| `openEntry(entryId)` | Optional. Ctrl+K calls it after jumping to the tile when the search hit was one of your `entries` rows, so a gadget can show that very row (the Writer folder opens the page). |
 | `static defaults()` | Initial `settings` for a new tile of this type. |
 
 ### Use
@@ -240,6 +241,11 @@ Visitors get the same gadget code with `HB.readOnly === true`. Most of the work 
 | `HB.bus.on('data' / 'saved' / 'status' / 'rendered', fn)` | App events (`'rendered'` gets a tile id after its body was rebuilt). |
 | `HB.localDay(date)`, `HB.fmtDateTime(iso)`, `HB.normUrl(text)`, `HB.debounce(fn, ms)` | Small utilities. |
 
+**Document editor.** `HB.editor` (`public/js/editor.js`, styled by `css/editor.css`) is the editor behind the Writer and the Writer folder; use it instead of building another one.
+`HB.editor.rich({ value, readOnly, onChange(html), upload(file, onProgress) → Promise<url> })` → `{ el, body, status, focus(), getHTML(), setHTML(html), destroy() }`
+(register `destroy` with `HB.onCleanup`; put `status` text such as "Saved" in `status`); `HB.editor.code(value, lang, { readOnly, onInput, onRun })` → `{ el, ta }`;
+`HB.editor.sanitizeToString(html)` (always run stored HTML through it before saving), `toText(html)`, `page(title, html)` (a full page for download / print), `print(title, html)`, `download(name, text, type)`, `LANGS`.
+
 Styling: use the CSS variables from `css/app.css` (`--bg`, `--card`, `--card2`, `--text`, `--muted`, `--line`,
 `--brand`, `--brand-ink`, `--danger`, `--ok`, `--hover`, `--radius`). Dark mode then works by itself. Prefix your classes with a short gadget tag.
 Shared building blocks: `.btn`, `.btn.small`, `.btn.ghost`, `.btn.on`, `.seg`/`.seg-btn`, `.empty`, `.muted`,
@@ -302,8 +308,8 @@ Then zip the folder it gives back and drop it on the Gadgets page.
 
 ## 9. Testing
 
-* `node tests/e2e.cjs`, `tests/gadgets.cjs`, `tests/v3.cjs` drive a real browser. Copy a section of
+* `node tests/e2e.cjs`, `tests/gadgets.cjs`, `tests/v3.cjs`, `tests/v4.cjs`, `tests/v5.cjs` drive a real browser. Copy a section of
   `tests/v3.cjs` to test a new gadget: `addTile('<type>')`, then use `page.locator('.tile[data-tile="…"] …')`.
-* `tests/v4.cjs` covers packages (install, update, bad zips, isolation, switch off, delete). It needs a server
+* `tests/v5.cjs` covers packages (install, update, bad zips, isolation, switch off, delete). It needs a server
   with a scratch gadgets folder; `tests/lib/zip.cjs` builds zips in tests.
 * After changing PHP, run `node tests/api.cjs` too. See tests/README.md for the servers they need.

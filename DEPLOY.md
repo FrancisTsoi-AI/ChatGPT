@@ -130,10 +130,13 @@ Open **https://task.francistsoi.com** and sign in. Then walk through this "done 
 - [ ] **+ Tile** shows the extra tiles; add a *Flashcards* tile, import two cards, press *Study*; add a *Note* and a *Timer*
 - [ ] (needs cURL) add a *Weather* tile and pick your city; add *News feeds* with e.g. `BBC | https://feeds.bbci.co.uk/news/rss.xml`
 - [ ] Double-click empty space: a **Writer** appears; type, make a word bold, reload: it is still there
+- [ ] In the Writer type `# Hello`, then `- one`, then `[] a job`: a heading, a bullet list and a tick-box list appear. Press `Ctrl+Z`: it undoes
+- [ ] **+ Tile → Writer folder**: *New page*, type a title and some text, *New folder*, drag the page into it, reload: all still there
+- [ ] Right-click a scenario tab → *Group → New group…*; click the group's name: its tabs hide (minimise); click again: they show (maximise)
 - [ ] Add a *YouTube playlist* tile, paste two video links, press ⏭: the second video plays (no "Error 153")
 - [ ] `⋯ → Share this scenario…` → *New share link* named `test`, open `https://task.francistsoi.com/test` in a private
       window, type the password: you see the scenario read-only. Then *Switch off* the link
-- [ ] `⋯ → Gadgets…` lists 22 gadgets and the drop box says *Drop a gadget .zip here* (not "not available")
+- [ ] `⋯ → Gadgets…` lists 24 gadgets and the drop box says *Drop a gadget .zip here* (not "not available")
 
 ## Step 8 · Make it your start page
 

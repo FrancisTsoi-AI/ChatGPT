@@ -23,9 +23,9 @@ const HB_UPLOAD_RULES = ['any', 'audio', 'png', 'image'];
 const HB_GADGET_TYPE_RE = '/^[a-z][a-z0-9_]{1,19}$/';
 
 /** Core scripts, in load order: "core" before the gadgets (+ their manifests), "app" after them. */
-const HB_CORE_JS_BEFORE = ['js/util.js', 'js/api.js', 'js/store.js', 'js/ui.js', 'js/emoji.js', 'js/md.js', 'js/gadget.js', 'js/kit.js', 'js/filekit.js'];
+const HB_CORE_JS_BEFORE = ['js/util.js', 'js/api.js', 'js/store.js', 'js/ui.js', 'js/emoji.js', 'js/md.js', 'js/gadget.js', 'js/kit.js', 'js/filekit.js', 'js/editor.js'];
 const HB_CORE_JS_AFTER = ['js/upload.js', 'js/grid.js', 'js/trash.js', 'js/search.js', 'js/shares.js', 'js/gadget-admin.js', 'js/app.js'];
-const HB_CORE_CSS = ['css/app.css'];
+const HB_CORE_CSS = ['css/app.css', 'css/editor.css'];
 
 /** Files inside a gadget folder that assets.php may hand to the browser (never .php, .md or dot files). */
 const HB_GADGET_SERVE_TYPES = [

@@ -18,7 +18,12 @@ sketch board, emoji picker for toolbox links, enlarge/restore for every tile.
 (rich text / HTML + JS run sandboxed / code; double-click or double-tap empty space adds one); YouTube playlist; Toolbox *Open all* +
 icon view; mp3 recognised by name; embed frame check + sandboxed copy + YouTube referrer fix (Error 153); delete scenario; sign out on
 all devices (session epoch); password + expiry share links at `/<name>` (read-only visitors).
-**Round 4** built and tested (`tests/v4.cjs`): gadgets are WordPress-style plug-ins. One folder each in `private/gadgets/<type>/`
+**Round 4** built and tested (`tests/v4.cjs`): the Writer's rich text is now a CKEditor-style editor (`public/js/editor.js` + `css/editor.css`, shared as `HB.editor`);
+new **Writer folder** gadget (`library`: pages, code pages, folders, drag, filter, search; a Writer can be moved into one); **scenario groups**
+(a named folder of tabs you minimise/maximise; setting `scenario_groups`, code in `app.js`).
+**Pronounce names** gadget (`pronounce`, kind `pron`; `g/pronounce/lookup|audio`): name → IPA (Wiktionary/Wikipedia/dictionary), UK/US
+device voice + recordings, howtopronounce links. Built, NOT yet covered by tests (only by v5's install check of its zip).
+**Round 5** built and tested (`tests/v5.cjs`): gadgets are WordPress-style plug-ins. One folder each in `private/gadgets/<type>/`
 (outside the web root, `server.php` inside); ⋯ → Gadgets… installs/updates from a dropped .zip (checked, staged, passphrase,
 atomic rename), switches off/on (`storage/gadgets.json`), downloads, deletes (tiles kept or trashed). Each gadget's JS/CSS loads
 as its own file, so a broken one only breaks itself. `dist/gadgets/*.zip` = one zip per gadget. Next work = whatever the user asks.
@@ -37,9 +42,9 @@ public/    → web root of the subdomain (zip: web/)       private/ → outside 
                                                             src/shares.php  share links: unlock, scope, state
   _boot.php  finds the private folder                       src/fetch.php   SSRF-safe hb_fetch, cache, text clean
   js/ css/ vendor/ (GridStack 11, SortableJS 1)             src/setup.php   host checks (web + CLI)
-                                                            gadgets/<type>/ manifest.json gadget.js gadget.css server.php README.md
+  js/editor.js = HB.editor (rich + code editor, sanitizer)  gadgets/<type>/ manifest.json gadget.js gadget.css server.php README.md
                                                             bin/            check-host.php, hash-passphrase.php
-schema.sql  9 tables   tests/ api.cjs e2e.cjs gadgets.cjs v3.cjs v4.cjs lib/zip.cjs   tools/build-zip.py → dist/*.zip, dist/gadgets/*.zip
+schema.sql 9 tables  tests/ api e2e gadgets v3 v4 v5 .cjs, lib/zip.cjs   tools/build-zip.py → dist/*.zip, dist/gadgets/*.zip
 ```
 Private folder is found via `HB_PRIVATE_DIR`, a `public/.private-path` file, or `../homebase-private`, `../private` (up to 3 levels).
 
@@ -54,9 +59,10 @@ tiles with `settings.shared_from = <tile id>` are **mirror tiles** (same content
 **`entries`** serves the richer tiles (`kind` must match the tile type: manifests' `entryKinds`, `hb_entry_tile()`; `searchKinds` = what Ctrl+K searches): `card` (a=front, b=back, `due_at`, data={ivl,ease,reps,lapses,first}),
 `quote` (a=text, b=source, data={author,year,page,url}), `reading` (a=title, b=url, data={status,author,note}), `habit` (a=habit id, `day`, num 1/0 — toggled, never deleted),
 `time` (a=label, `day`, num=seconds), `note` (a=Markdown, one row per tile), `doc` (Writer: a=HTML/code, data.mode rich|web|code, one per mode),
-`video` (YouTube: a=title, b=url, data={vid,list,author}). `thoughts` has no `colour` column. `day` rows older than 400 days stay in the DB but are not sent in `state`.
+`video` (YouTube: a=title, b=url, data={vid,list,author}), `page` (Writer folder: a=HTML/code, b=title, `num`=parent folder id (0 = top), data={t:page|code|folder,lang,open}), `pron` (a=name, b=IPA, data={kind,uk,us,say,audio{uk,us},source,url,note}). `thoughts` has no `colour` column. `day` rows older than 400 days stay in the DB but are not sent in `state`.
 The gateway creates missing tables itself from `schema.sql` (`hb_ensure_schema`). Datetime columns MUST go through `hb_row` ISO conversion (`due_at` once leaked a
 zone-less string, which browsers read as local time: wrong by 8 h in Singapore, UTC+8). Sketch = one `files` row per `sketch` tile, replaced in place via `upload` + `replace_id`.
+**Scenario groups** live in the `settings` key `scenario_groups` = `{"groups":[{id,name,collapsed}],"of":{"<scenario id>":"<group id>"}}` (no schema change; `app.groupData()/editGroups()`; tabs show in `app.displayItems()` order, keys 1-9 follow it).
 Other tiles keep their data in `tiles.settings`: To-do buckets live in the tile's `settings.buckets` (ids urgent/later/brainoff/none + custom); countdown dates in `settings.items`.
 
 ## API (public/api.php) — all JSON
@@ -64,7 +70,7 @@ Other tiles keep their data in `tiles.settings`: To-do buckets live in the tile'
 * POST `batch` `{ops:[{op:create|update|delete|restore|purge|setting,...}]}` — one transaction; only whitelisted columns
   (`hb_spec()` in data.php) are writable; `delete` is soft; `purge` only works on trashed rows and unlinks stored files.
 * `g/<type>/<action>` — a gadget's server actions (`<gadget>/server.php` returns `['action' => fn(array $c): array]`): `g/feeds/feed`,
-  `g/reading/title`, `g/weather/geocode|weather`, `g/embed/check|snapshot`, `g/writer/run`, `g/youtube/info`. Outbound only via `hb_fetch`
+  `g/reading/title`, `g/weather/geocode|weather`, `g/embed/check|snapshot`, `g/writer/run`, `g/youtube/info`, `g/pronounce/lookup|audio`. Outbound only via `hb_fetch`
   (public addresses only; metadata 169.254/fe80 always refused; `HB_ALLOW_PRIVATE_FETCH=1` is for tests ONLY); cached in `storage/cache`.
 * Share links: POST `share/unlock {slug,password}`; with `&share=<slug>` only GET `share/state` and GET gadget actions listed in the
   manifest's `shareActions` work (they must still scope via `hb_share_allows_setting` / `hb_share_has_tile`); everything else 403. Owner: `shares`,
@@ -107,10 +113,11 @@ node tests/api.cjs                                 # gateway rules (needs mysql 
 node tests/e2e.cjs                                 # browser e2e (Playwright + Chromium; fresh/empty DB)
 node tests/gadgets.cjs                             # extra tiles; needs the 2nd server + fake feeds (tests/README.md); runs in UTC+8
 node tests/v3.cjs                                  # round 3 (writer, youtube, shares, sign-out-all…); 2nd server; Asia/Singapore
-node tests/v4.cjs                                  # gadget plug-ins; 3rd server with HB_GADGETS_DIR=scratch (tests/README.md)
+node tests/v4.cjs                                  # round 4 (editor, Writer folder, scenario groups); main server; Asia/Singapore
+node tests/v5.cjs                                  # gadget plug-ins; 3rd server with HB_GADGETS_DIR=scratch (tests/README.md)
 python3 tools/build-zip.py                         # dist/homebase-task.francistsoi.com.zip (never includes .env or storage data)
 ```
-Run all five tests before committing a behaviour change (empty the DB and `storage/cache` before each browser suite);
+Run all six tests before committing a behaviour change (empty the DB and `storage/cache` before each browser suite);
 rebuild and commit the zip when public/ or private/ changes.
 
 ## Rules of the house

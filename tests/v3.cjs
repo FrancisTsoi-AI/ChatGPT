@@ -48,16 +48,17 @@ const fake = http.createServer((req, res) => {
 
   // ======================================================================================== modules
   section('gadgets are modules');
+  const SHIPPED = fs.readdirSync(path.join(__dirname, '..', 'private', 'gadgets')).filter((d) => fs.existsSync(path.join(__dirname, '..', 'private', 'gadgets', d, 'manifest.json'))).length;
   const bundle = await page.evaluate(async () => { const r = await fetch(document.querySelector('script[src^="assets.php?b=core"]').src); return { cc: r.headers.get('cache-control'), body: await r.text(), scripts: document.querySelectorAll('script[data-gadget]').length }; });
   const n = (bundle.body.match(/^HB\.gadgets\.addManifest\(/gm) || []).length;
-  ok(n === 22 && bundle.scripts === 22, 'the core bundle carries all 22 manifests, and each gadget loads as its own script (' + n + ', ' + bundle.scripts + ')');
+  ok(n === SHIPPED && bundle.scripts === SHIPPED, 'the core bundle carries all ' + SHIPPED + ' manifests, and each gadget loads as its own script (' + n + ', ' + bundle.scripts + ')');
   ok(/immutable/.test(bundle.cc), 'the versioned bundle may be cached for a year');
   const reg = await page.evaluate(() => {
     const types = HB.gadgets.types();
     const t = HB.store.data.tiles[0];
     return { types, isGadget: HB.gadgets.instance(t) instanceof HB.Gadget, groups: [...new Set(types.map((x) => HB.typeInfo[x].group))] };
   });
-  ok(reg.types.length === 22 && reg.isGadget, 'every tile is driven by an instance of a class that extends HB.Gadget');
+  ok(reg.types.length === SHIPPED && reg.isGadget, 'every tile is driven by an instance of a class that extends HB.Gadget');
   ok(JSON.stringify(reg.groups) === JSON.stringify(['Everyday', 'Writing', 'Study', 'Focus', 'Web', 'Files & media']), 'the + Tile menu groups come from the manifests');
 
   // ======================================================================================== embed
@@ -143,7 +144,8 @@ const fake = http.createServer((req, res) => {
   await page.keyboard.type('Big idea');
   await page.keyboard.press('Control+a');
   await T(wr).locator('.wr-b.b').click();
-  await T(wr).locator('.wr-block').selectOption('h2');
+  await T(wr).locator('.wr-dd-block').click();
+  await page.locator('.wr-pop-item', { hasText: 'Heading 2' }).click();
   await page.waitForFunction((id) => HB.store.entriesOf(id, 'doc').some((e) => /<h2>.*Big idea/.test(e.a)), wr, { timeout: 6000 });
   ok(true, 'toolbar formatting (bold, heading) is saved as HTML');
   await page.evaluate(() => {
