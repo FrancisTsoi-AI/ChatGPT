@@ -2,7 +2,7 @@
 
 Each gadget (tile type) in Home Base is a **plug-in**, like a WordPress plug-in: one folder holds all of
 it (browser code, styles, server code, notes, pictures). Zip that folder and you have a package that
-anyone can install on the **Gadgets page** (`⋯ → Gadgets…`) by dropping the zip. The same page updates,
+anyone can install on the **Gadgets page** (`⋯ → Gadgets & updates…`) by dropping the zip. The same page updates,
 switches off, downloads and deletes gadgets, one at a time, without touching the others.
 
 To build or upgrade a gadget you only read and change **its own folder**. This also keeps AI sessions
@@ -297,7 +297,12 @@ Gadgets page. Settings keys you add need defaults (read them as `s.newKey ?? fal
 tiles don't have them. Never repurpose an existing key or entry column with a different meaning. Add a
 new one instead.
 
-**Remove a gadget**: Gadgets page → Delete (or delete its folder by FTP).
+**Remove a gadget**: Gadgets page → Delete.
+
+**Built-in gadgets** are the folders in `private/gadgets/` of the repository. `tools/build-zip.py` zips each one into the
+release's catalog (`homebase-private/catalog/<type>.zip`): a new site gets all of them, the Gadgets page offers the missing ones
+with an **Add** button, and a Home Base update that carries a newer version offers **Update** (and updates the ones you have).
+So to ship a new built-in gadget, add its folder and build a release; to ship a fix, raise its `version`.
 
 **Ask an AI to work on one gadget** (cheap). Give it this file and the gadget's folder (or its zip):
 > "Here is GADGET_API.md and the youtube gadget folder. Add a 'Play next' item to the video menu.

@@ -26,7 +26,13 @@ device voice + recordings, howtopronounce links. Built, NOT yet covered by tests
 **Round 5** built and tested (`tests/v5.cjs`): gadgets are WordPress-style plug-ins. One folder each in `private/gadgets/<type>/`
 (outside the web root, `server.php` inside); ⋯ → Gadgets… installs/updates from a dropped .zip (checked, staged, passphrase,
 atomic rename), switches off/on (`storage/gadgets.json`), downloads, deletes (tiles kept or trashed). Each gadget's JS/CSS loads
-as its own file, so a broken one only breaks itself. `dist/gadgets/*.zip` = one zip per gadget. Next work = whatever the user asks.
+as its own file, so a broken one only breaks itself. `dist/gadgets/*.zip` = one zip per gadget.
+**Round 6** built and tested (`tests/v6.cjs`): Home Base is ONE file like WordPress. `dist/homebase-setup.php` (= `tools/installer.php`
++ `private/src/package.php` + the package appended after `__halt_compiler()`) installs a new site (host check, DB form, passphrase,
+creates `../homebase-private`, writes .env, tables, all built-in gadgets, deletes itself; 2 h window) or updates an old one (passphrase).
+In the app, the same Gadgets & updates drop box takes the Home Base file (update, journaled + rolled back) and offers the built-in
+catalog (`homebase-private/catalog/<type>.zip`: Add / Update, no file). `private/core.json` on a site = installed version + web file
+hashes (stale files removed on update). Next work = whatever the user asks.
 
 ## Layout
 ```
@@ -38,13 +44,14 @@ public/    → web root of the subdomain (zip: web/)       private/ → outside 
   file.php   serve a file by id (login, Range, nosniff)     src/data.php    table spec, state, batch ops, trash, search
   share.php  share link: password page or read-only app    src/files.php   upload, chunks, serve, zip
   export.php JSON / zip backup                              src/gadgets.php manifests, on/off, actions, assets
-  setup.php  host check + passphrase hash (404 once set)    src/gadget_admin.php  Gadgets page: zip install, delete…
+  setup.php  host check + passphrase hash (404 once set)    src/gadget_admin.php  Gadgets & updates page: zips, catalog, core update
+                                                            src/package.php  Home Base packages: open, check, apply (standalone)
                                                             src/shares.php  share links: unlock, scope, state
   _boot.php  finds the private folder                       src/fetch.php   SSRF-safe hb_fetch, cache, text clean
   js/ css/ vendor/ (GridStack 11, SortableJS 1)             src/setup.php   host checks (web + CLI)
   js/editor.js = HB.editor (rich + code editor, sanitizer)  gadgets/<type>/ manifest.json gadget.js gadget.css server.php README.md
                                                             bin/            check-host.php, hash-passphrase.php
-schema.sql 9 tables  tests/ api e2e gadgets v3 v4 v5 .cjs, lib/zip.cjs   tools/build-zip.py → dist/*.zip, dist/gadgets/*.zip
+schema.sql 9 tables  tests/ api e2e gadgets v3 v4 v5 v6 .cjs, lib/   tools/installer.php, build-zip.py → dist/homebase-setup.php, homebase.zip, gadgets/
 ```
 Private folder is found via `HB_PRIVATE_DIR`, a `public/.private-path` file, or `../homebase-private`, `../private` (up to 3 levels).
 
@@ -75,7 +82,9 @@ Other tiles keep their data in `tiles.settings`: To-do buckets live in the tile'
 * Share links: POST `share/unlock {slug,password}`; with `&share=<slug>` only GET `share/state` and GET gadget actions listed in the
   manifest's `shareActions` work (they must still scope via `hb_share_allows_setting` / `hb_share_has_tile`); everything else 403. Owner: `shares`,
   `shares/save`, `shares/delete`. `.htaccess` rewrites `/<slug>` → `share.php?s=<slug>`. POST `auth/logout-all {keep_this}`.
-* Gadgets page (owner): GET `gadgets`; POST `gadgets/upload` (multipart zip → staged in `<gadgets>/.stage-<token>`, preview),
+* Gadgets page (owner): GET `gadgets` (installed, `available` from the catalog, `version`); POST `gadgets/catalog {type}` (add/update a
+  built-in, no passphrase); POST `gadgets/upload` (multipart zip → staged in `<gadgets>/.stage-<token>`, preview; a zip with
+  `homebase.json` = a Home Base update → kept as `storage/tmp/core-<token>.zip`, `hbp_apply` on install; refused in a git checkout),
   `gadgets/install {token,passphrase}` (403 on wrong passphrase, never 401), `gadgets/switch {type,on}`, `gadgets/delete {type,trash_tiles}`;
   GET `gadgets/export&type=`. `HB_GADGETS_DIR` moves the gadgets folder (tests); `HB_GADGET_INSTALL=0` disables web installs.
 * POST `upload` (multipart, whole file) and `upload-chunk` (upload_id, offset, total, name, tile_id, file) — ordered chunks, 409 otherwise.
@@ -115,15 +124,18 @@ node tests/gadgets.cjs                             # extra tiles; needs the 2nd 
 node tests/v3.cjs                                  # round 3 (writer, youtube, shares, sign-out-all…); 2nd server; Asia/Singapore
 node tests/v4.cjs                                  # round 4 (editor, Writer folder, scenario groups); main server; Asia/Singapore
 node tests/v5.cjs                                  # gadget plug-ins; 3rd server with HB_GADGETS_DIR=scratch (tests/README.md)
-python3 tools/build-zip.py                         # dist/homebase-task.francistsoi.com.zip (never includes .env or storage data)
+node tests/v6.cjs                                  # one-file installer + web updates + old-site upgrades (own servers 8086-8088)
+python3 tools/build-zip.py                         # dist/homebase-setup.php, homebase.zip, gadgets/*.zip (never .env or stored data)
 ```
-Run all six tests before committing a behaviour change (empty the DB and `storage/cache` before each browser suite);
+Run all seven tests before committing a behaviour change (empty the DB and `storage/cache` before each browser suite);
 rebuild and commit the zip when public/ or private/ changes.
 
 ## Rules of the house
 * Secrets only in `private/.env` (gitignored). Never log or echo them. Files live in `private/storage/files` under random 32-hex names.
 * Every endpoint except auth/status+login needs a session (or, read-only, an unlocked share); every non-GET needs CSRF. Keep it that way.
 * Installing a gadget = running its code: keep the zip checks, staging, passphrase re-check and CSRF in gadget_admin.php.
+  The same for Home Base updates (package.php) and the installer (fresh install only when no site exists, 2 h window, self-delete).
+  Bump `HB_VERSION` (gadgets.php) for every release; a gadget fix needs its manifest `version` raised to reach existing sites.
 * Writer HTML+JS runs only from `g/writer/run` under `CSP: sandbox allow-scripts` WITHOUT allow-same-origin. Never relax that.
 * No build step, no npm at runtime: vendored libs stay in `public/vendor/`. Keep PHP 8.0 compatible (no `never`, enums, readonly).
 * Keep this file under ~200 lines; update "Status" and "Deviations" when you change them.

@@ -1,196 +1,107 @@
-# Deploying Home Base to task.francistsoi.com
+# Installing and updating Home Base (task.francistsoi.com)
 
-This is the whole procedure, start to finish. It takes about 20 minutes. You need a shared host with
-**PHP 8.0 or later**, **MySQL or MariaDB**, **phpMyAdmin**, and a file manager or FTP. Nothing has to be
-installed or built on your computer.
+Home Base works like WordPress: **one file** puts it on your site, and from then on everything is done in the
+browser. On the **Gadgets & updates** page you add, update, switch off and delete gadgets (plug-ins), and Home Base
+updates itself when you drop its newer file there. No FTP, no editing settings files, no phpMyAdmin.
 
-The upload zip (`homebase-task.francistsoi.com.zip`) contains:
+You need a shared host with **PHP 8.0 or later** (with the `zip` and `pdo_mysql` extensions, normally on),
+**MySQL or MariaDB**, and the hosting panel's **file manager** (to upload the one file, once).
 
-```
-homebase-upload/
-├─ DEPLOY.md              this guide
-├─ README.md              what Home Base is and how to use it
-├─ GADGET_API.md          how a gadget (tile type) is built: hand it to an AI with one gadget's folder to change just that
-├─ schema.sql             the database tables (you run it in phpMyAdmin the first time)
-├─ web/                   → goes into the web folder of task.francistsoi.com
-└─ homebase-private/      → goes NEXT TO that web folder, never inside it (its gadgets/ folder holds every gadget)
-```
+The release files (in `dist/`):
 
-Separately, `dist/gadgets/` in the repository holds each gadget as its own `.zip` (e.g. `writer-1.0.0.zip`), the
-format the in-app **Gadgets page** installs (see *Gadgets* below).
-
-> **Why two folders?** `web/` is public: the page, styles and scripts. `homebase-private/` holds the
-> gateway code, your database password (`.env`) and every file you upload. It must sit outside the
-> web folder so the browser can never reach it. Rule of thumb: **never put `homebase-private` inside
-> the web folder.**
+| File | What it is for |
+|---|---|
+| **`homebase-setup.php`** | **The one file.** Upload it once and open it: it installs Home Base (or updates an older one). Later, drop the newer one on *Gadgets & updates*. |
+| `homebase.zip` | The same thing as a plain zip, for updates if your host refuses `.php` uploads through a web form. |
+| `gadgets/<name>-<version>.zip` | Each built-in gadget on its own. Rarely needed: built-in gadgets are offered on the Gadgets page with one click. |
 
 ---
 
-## Step 1 · Create the subdomain (hosting panel)
+## Install (about 5 minutes)
 
-1. In your hosting panel open **Domains → Subdomains** (cPanel: *Subdomains*; others: *Domains*).
-2. Create **`task`** under `francistsoi.com`.
-3. Note the **document root** the panel shows. Common values:
-   - `/home/USER/task.francistsoi.com` (newer cPanel — ideal)
-   - `/home/USER/public_html/task` (older cPanel)
-4. Turn on **HTTPS** for it (cPanel: *SSL/TLS Status → Run AutoSSL*; or *Let's Encrypt*). Home Base
-   refuses to run over plain HTTP in production (`.htaccess` redirects to HTTPS).
-5. If your DNS is not at the same host, add an `A` (or `CNAME`) record for `task` pointing to the host.
-   DNS can take a few minutes to an hour.
+### 1 · Create the subdomain and the database (hosting panel)
 
-## Step 2 · Create the database (hosting panel)
+1. **Domains → Subdomains** (cPanel: *Subdomains*): create **`task`** under `francistsoi.com`. Note its **document root**
+   (for example `/home/USER/task.francistsoi.com` or `/home/USER/public_html/task`).
+2. Turn on **HTTPS** for it (cPanel: *SSL/TLS Status → Run AutoSSL*, or *Let's Encrypt*).
+3. **MySQL Databases** (cPanel): create a database (e.g. `USER_homebase`) and a user with a long password (e.g. `USER_hb`),
+   and **add the user to the database with ALL PRIVILEGES**. Keep the names and the password at hand.
 
-1. Open **MySQL Databases** (cPanel) and create a database, e.g. `USER_homebase`.
-2. Create a database **user** with a long random password, e.g. `USER_hb`.
-3. **Add the user to the database with ALL PRIVILEGES — for this one database only.**
-4. Write down: database name, user, password. (Hosts usually prefix the names with your account name.)
+### 2 · Upload the one file and open it
 
-## Step 3 · Check the host (S0 checklist)
+1. **File Manager** → open the subdomain's document root → **Upload** → `homebase-setup.php`.
+2. Open **https://task.francistsoi.com/homebase-setup.php** in your browser.
+3. The page checks your host (everything should be ✓), then asks for the database (host, usually `localhost`; name; user;
+   password) and the **passphrase** you will sign in with (10+ characters; a few random words is best). Press **Install Home Base**.
 
-Note these in the panel (**Select PHP Version / MultiPHP** and the file manager) — the setup page in
-Step 6 also checks most of them for you:
+That's it. The installer:
+- puts the web files in the web folder;
+- creates the **private folder** `homebase-private` *next to* it, outside the web, where your settings, uploaded files
+  and gadgets live;
+- writes the settings file and creates the tables;
+- adds every built-in gadget;
+- **deletes itself**.
 
-- [ ] PHP is 8.0 or newer (8.2+ recommended) with extensions `pdo_mysql`, `mbstring`, `json`
-      (and `fileinfo`; `zip` for the "data + files" backup; `curl` + `simplexml` for the **News feeds**, **Weather**
-      and reading-list **title** features — everything else works without them)
-- [ ] MySQL 5.7+ / MariaDB 10.3+
-- [ ] You can create folders in your home directory, outside the web folder
+Press *Open Home Base* and sign in.
 
-You do **not** need to raise `upload_max_filesize`: big files are sent in chunks automatically.
+> For safety, the installer works only for **2 hours** after you upload it, then removes itself. On a site that is
+> already installed it only offers an update, which needs your passphrase. So upload it and open it right away.
 
-## Step 4 · Upload the files
+If the host check shows a ✗, it says what to do. Usually that's switching on a PHP extension or choosing PHP 8 in the
+panel's *Select PHP Version*. On a few hosts you need to create an empty folder named `homebase-private` next to the web
+folder in the file manager. Fix it and reload the page.
 
-1. Upload `homebase-task.francistsoi.com.zip` to your home directory (File Manager → *Upload*, or FTP)
-   and **Extract** it. You get a `homebase-upload` folder.
-2. **Move the contents of `homebase-upload/web/` into the subdomain's document root** (Step 1.3).
-   Include the hidden file **`.htaccess`** — in File Manager tick *Settings → Show Hidden Files*.
-3. **Move the folder `homebase-upload/homebase-private/` to your home directory**, next to the
-   document-root folder. The result must look like one of these:
+### 3 · Check it works
 
-   ```
-   /home/USER/
-   ├─ homebase-private/          ← private (outside the web)
-   │  ├─ .env.example  schema.sql
-   │  ├─ src/  bin/  storage/
-   │  └─ gadgets/                ← one folder per gadget (clock/, writer/, youtube/ …)
-   └─ task.francistsoi.com/      ← the subdomain's document root
-      ├─ index.php  api.php  assets.php  file.php  share.php  export.php  setup.php  _boot.php
-      ├─ .htaccess
-      ├─ css/  js/  vendor/
-   ```
-
-   For the older layout (`/home/USER/public_html/task`) keep `homebase-private` in `/home/USER/`
-   — the gateway looks up to three levels above the web folder, so both layouts work.
-
-   *If you put it somewhere unusual*, create a file named `.private-path` inside the web folder
-   containing one line: the full path of `homebase-private` (e.g. `/home/USER/homebase-private`).
-
-4. Make sure these folders are writable by PHP (normally the default; use permissions `755`, or `700`
-   if your host runs PHP as your own user): `homebase-private/storage/files`, `…/sessions`,
-   `…/ratelimit`, `…/tmp`, `…/cache`. To install gadgets from the browser, `homebase-private/gadgets` must be
-   writable too (same permissions); otherwise you add gadgets by FTP.
-
-## Step 5 · Create the tables
-
-1. Open **phpMyAdmin** from the panel and click your database in the left list (it is empty).
-2. **Import** tab → *Choose file* → `homebase-upload/schema.sql` (download it from the file manager
-   to your computer first, or paste its text into the **SQL** tab) → **Go**.
-3. You should now see **9 tables**: `scenarios`, `tiles`, `links`, `tasks`, `files`, `thoughts`, `entries`, `settings`, `shares`.
-
-The script only creates what is missing, so running it again later is safe.
-
-## Step 6 · Write the `.env` (secrets) and choose your passphrase
-
-1. In `homebase-private/`, **copy `.env.example` to `.env`** and open `.env` in the file manager's
-   editor. Fill in `DB_HOST` (usually `localhost`), `DB_NAME`, `DB_USER`, `DB_PASS`.
-   Type them yourself; don't paste them into a chat.
-2. Open **https://task.francistsoi.com/setup.php**.
-   - The **host check** lists what is fine and what to fix. Everything marked *FIX* must be green.
-   - Under **Passphrase hash**, type the passphrase you will use to sign in (long: 14+ characters or
-     a few random words) twice, press **Generate hash**.
-3. Copy the line it shows, `HB_PASSPHRASE_HASH='$2y$…'`, into `.env` (replace the empty
-   `HB_PASSPHRASE_HASH=''` line) and save.
-4. Reload `setup.php`: it now answers *Not found* — it switches itself off once a passphrase is set.
-   (You may also delete `setup.php` from the web folder.)
-
-   *With a terminal instead:* `php homebase-private/bin/check-host.php` and
-   `php homebase-private/bin/hash-passphrase.php` do the same.
-
-## Step 7 · Sign in and check it works
-
-Open **https://task.francistsoi.com** and sign in. Then walk through this "done when" list:
-
-- [ ] Three tabs **Work · Idea · PhD**, each with starter tiles (keys `1` `2` `3` switch)
-- [ ] Add a link in the Toolbox, add a task, drag it to **Later**, reload — it is still there
-- [ ] Drag a tile by its title, pull its corner to resize, reload — the layout survived
-- [ ] Drag a tile onto **🗑 Trash**, open Trash, **Restore** it
-- [ ] Add a **Files** tile, drop a PDF onto the page, it appears and downloads intact
+- [ ] Three tabs **Work · Idea · PhD** with starter tiles (keys `1` `2` `3` switch)
+- [ ] Add a link in the Toolbox, add a task, drag it to **Later**, reload: it is still there
+- [ ] Drag a tile by its title, pull its corner to resize, reload: the layout survived
+- [ ] Double-click empty space: a **Writer** appears; type, make a word bold, reload: still there
+- [ ] Add a **Files** tile, drop a PDF onto the page: it appears and downloads intact
+- [ ] `⋯ → Gadgets & updates…` shows Home Base's version and 24 installed gadgets
 - [ ] Sign in on your phone: it stays signed in for 90 days
-- [ ] 5 wrong passphrases pause sign-in for 15 minutes (try it from a private window if you like)
-- [ ] **+ Tile** shows the extra tiles; add a *Flashcards* tile, import two cards, press *Study*; add a *Note* and a *Timer*
-- [ ] (needs cURL) add a *Weather* tile and pick your city; add *News feeds* with e.g. `BBC | https://feeds.bbci.co.uk/news/rss.xml`
-- [ ] Double-click empty space: a **Writer** appears; type, make a word bold, reload: it is still there
-- [ ] In the Writer type `# Hello`, then `- one`, then `[] a job`: a heading, a bullet list and a tick-box list appear. Press `Ctrl+Z`: it undoes
-- [ ] **+ Tile → Writer folder**: *New page*, type a title and some text, *New folder*, drag the page into it, reload: all still there
-- [ ] Right-click a scenario tab → *Group → New group…*; click the group's name: its tabs hide (minimise); click again: they show (maximise)
-- [ ] Add a *YouTube playlist* tile, paste two video links, press ⏭: the second video plays (no "Error 153")
-- [ ] `⋯ → Share this scenario…` → *New share link* named `test`, open `https://task.francistsoi.com/test` in a private
-      window, type the password: you see the scenario read-only. Then *Switch off* the link
-- [ ] `⋯ → Gadgets…` lists 24 gadgets and the drop box says *Drop a gadget .zip here* (not "not available")
 
-## Step 8 · Make it your start page
+### 4 · Make it your start page
 
-- **Chrome / Edge:** Settings → *On startup* → *Open a specific page* → `https://task.francistsoi.com`;
-  and *Appearance → Show Home button* for the Home key.
-- **Firefox:** Settings → *Home* → *Custom URLs* → `https://task.francistsoi.com`.
-- **Safari:** Settings → *General* → *Homepage*.
-
-The page draws from a local cache first, so it appears immediately and syncs in the background.
+- **Chrome / Edge:** Settings → *On startup* → *Open a specific page* → `https://task.francistsoi.com`.
+- **Firefox:** Settings → *Home* → *Custom URLs*. **Safari:** Settings → *General* → *Homepage*.
 
 ---
+
+## Gadgets & updates (like WordPress's Plugins and Updates)
+
+Open **`⋯ → Gadgets & updates…`** (also at the bottom of **+ Tile**). Every tile type is a **gadget**, a self-contained plug-in.
+
+- **Add a gadget:** drag its `.zip` onto the box (or click the box to choose the file). Home Base checks it and shows its
+  name, version, author, size and whether it has server code. Confirm with your passphrase.
+- **Built-in gadgets you can add:** gadgets that come with Home Base but are not installed are listed with an **Add** button,
+  plus *Add all*. That covers ones you deleted and new ones a Home Base update brought. No file needed.
+- **Update a gadget:** drop its newer `.zip`. When a Home Base update brings a newer built-in gadget, it shows
+  **update: x.y.z** with an **Update** button.
+- **Switch off / on**, **⬇ .zip** and **Delete…**. The download is a copy you can keep, or change with an AI and
+  `GADGET_API.md`. Deleting asks whether its tiles go to the Trash or stay until you add it again. Nothing else is affected.
+
+**Update Home Base itself:** drop the newer **`homebase-setup.php`** (or `homebase.zip`) on the same box. You see the version
+change and which gadgets will be updated; confirm with your passphrase.
+- Home Base replaces its program files and keeps everything of yours: tiles, files, settings, share links and the gadgets
+  you added.
+- If anything goes wrong part-way, every replaced file is put back.
+- Built-in gadgets you have are updated. New built-in ones wait under *Built-in gadgets you can add*.
+
+**Updating from Home Base before 5.0** (no Gadgets & updates page yet): upload `homebase-setup.php` into the web folder with
+the file manager and open it, as for an install. It recognises the old site, asks for your passphrase and updates it. It
+also cleans up the old layout: it removes `web/gadgets/`, `web/js/tiles/` and the loose `homebase-private/gadgets/*.php`
+files, then adds all built-in gadgets. Your data stays. From then on, update in the app.
+
+Only install gadgets from people you trust: a gadget runs inside your Home Base, and one with server code runs on your web
+server. Installing from files needs PHP's `zip` extension, and PHP must be allowed to write to the Home Base folders (normal
+on shared hosting). `HB_GADGET_INSTALL=0` in `.env` switches installing from files off; built-in gadgets can still be added.
 
 ## Backups
 
-- **In the app:** `⋯` menu → *Backup* → *Download data (JSON)* or *data + files (zip)*.
-- **Belt and braces (recommended monthly):** phpMyAdmin → your database → *Export* → *Quick* → *Go*,
-  and copy `homebase-private/storage/files/` with FTP/File Manager. Those two things are everything.
-- Many hosts also run their own daily account backups; check that yours includes databases.
-
-## Updating to a new version
-
-1. Upload the new `web/` files over the old ones, including the hidden `.htaccess`.
-   Browsers pick up the change by themselves: the scripts come from `assets.php`, whose address changes whenever a file changes.
-2. Upload the new `homebase-private/src/`, `bin/` and `schema.sql` over the old ones.
-3. Gadgets: upload the folders in `homebase-private/gadgets/` **for the gadgets you use** (a newer version replaces the
-   older one). Skip the ones you deleted on purpose, or they come back. Gadgets you installed yourself are not in the zip and
-   are left alone. (You can also update gadgets one by one on the Gadgets page with the zips from `dist/gadgets/`.)
-4. **Do not overwrite** `homebase-private/.env` or anything in `homebase-private/storage/`.
-5. **Nothing to do for the database:** when a new version needs a new table, the gateway creates it by itself on first load
-   (it reads `homebase-private/schema.sql`). If your database user lacks CREATE rights you will see a message asking you to
-   import `schema.sql` in phpMyAdmin instead.
-6. *Coming from an earlier version*, delete what moved:
-   - `web/js/tiles/` (version 2) and `web/gadgets/` (version 3): gadgets now live in `homebase-private/gadgets/`;
-   - the loose files `homebase-private/gadgets/*.php` (`embed.php`, `feeds.php`, `reading.php`, `weather.php`, `writer.php`,
-     `youtube.php`): each is now `server.php` inside its gadget's folder.
-
-## Gadgets (add, update, switch off, delete, like WordPress plug-ins)
-
-Every tile type is a **gadget**: one folder in `homebase-private/gadgets/` holding all of it (code, styles, server part, notes).
-Open **`⋯ → Gadgets…`** (or *Install or manage gadgets…* at the bottom of **+ Tile**):
-
-- **Install or update:** drag a gadget `.zip` onto the box (or click it to choose the file). Home Base checks the zip, shows
-  what it is (name, version, author, size, and whether it has server code), and asks for your passphrase. A zip with the
-  same name as an installed gadget updates it; your tiles and their content stay.
-- **Switch off / on:** stops loading a gadget without deleting anything. Its tiles say it is switched off.
-- **⬇ .zip:** downloads a gadget, to keep a copy, to change it (with an AI and `GADGET_API.md`), or to install it elsewhere.
-- **Delete…:** removes the gadget's folder. Choose whether its tiles go to the Trash (restorable for 30 days) or stay
-  until you install it again. Other gadgets are not affected; built-in ones can be deleted too, and reinstalled from
-  their zip in `dist/gadgets/` or one you downloaded.
-
-Only install gadgets from people you trust: a gadget runs inside your Home Base, and one with server code runs on your
-web server. Installing from the browser needs PHP's `zip` extension and a writable `homebase-private/gadgets`; without
-them (or with `HB_GADGET_INSTALL=0` in `.env`), unzip the gadget and upload its folder into `homebase-private/gadgets/`
-by FTP; delete a folder the same way.
+- **In the app:** `⋯` → *Backup* → *Download data (JSON)* or *data + files (zip)*.
+- **Belt and braces (monthly):** phpMyAdmin → your database → *Export* → *Quick* → *Go*. Then, in the file manager,
+  compress `homebase-private/storage/files/` and download it. Those two things are everything.
 
 ## Share links
 
@@ -214,21 +125,22 @@ works on the host:
 | `HB_LOGIN_MAX_TRIES` / `HB_LOGIN_PAUSE_MIN` | 5 / 15 | Wrong tries, then pause in minutes |
 | `HB_TRASH_DAYS` | 30 | Days before trashed items are purged for good |
 | `HB_DEBUG` | 0 | `1` shows error details in API replies while you set things up |
-| `HB_GADGET_INSTALL` | 1 | `0` switches off installing and updating gadgets from the browser (FTP still works) |
+| `HB_GADGET_INSTALL` | 1 | `0` switches off installing gadgets and updating Home Base from files (built-in gadgets can still be added) |
 
-To **change your passphrase**: empty `HB_PASSPHRASE_HASH=''` in `.env`, open `setup.php` again, generate a
-new hash, paste it in. Existing devices stay signed in until you also choose `⋯ → Sign out on all devices…` in the app
-(or delete the files in `homebase-private/storage/sessions/`).
+The settings file is `homebase-private/.env` (the installer wrote it; edit it in the file manager only for these).
+
+To **change your passphrase**: empty `HB_PASSPHRASE_HASH=''` in `.env`, open `https://task.francistsoi.com/setup.php`, generate a
+new hash, paste it in. Existing devices stay signed in until you also choose `⋯ → Sign out on all devices…` in the app.
 
 ## Troubleshooting
 
 | Symptom | Likely cause and fix |
 |---|---|
-| "The private folder was not found" | `homebase-private` is not beside the web folder. Move it, or add `.private-path` (Step 4.3). |
+| The installer says *Could not connect to the database* | Check the database name, user and password (hosts usually prefix them with your account name), and that the user was added to the database with all privileges. |
+| The installer has *expired* | It works 2 hours after upload. Upload `homebase-setup.php` again and open it right away. |
+| "The private folder was not found" | `homebase-private` was moved away from the web folder. Put it back next to it, or add a one-line file `.private-path` in the web folder with its full path. |
 | "500 Internal Server Error" the moment you open the site | Your host does not allow an `.htaccess` directive. Open `.htaccess` in the web folder and delete the line `Options -Indexes` (then, if needed, the `<FilesMatch>` / `<Files>` blocks); the app still works, because the real protection is the private folder. |
 | White page / "Server error" | Set `HB_DEBUG=1` in `.env`, reload, read the message, then set it back to `0`. Also check the host's PHP error log. |
-| `setup.php` host check says *Database connection* failed | Wrong `DB_HOST/NAME/USER/PASS`, or the user was not added to the database (Step 2.3). |
-| Setup says tables missing | Run `schema.sql` (Step 5) in the *right* database. |
 | Sign-in works, then you are sent back to the login | Cookies blocked, or `storage/sessions` is not writable, or the site is opened over HTTP. Use `https://`. |
 | Sign-in says "Locked" | 5 wrong tries. Wait 15 min, or delete the files in `homebase-private/storage/ratelimit/`. |
 | Uploads stop at a certain size | The progress toast shows the reason. Home Base uses chunks; if your host caps request bodies below ~256 KB, ask the host to raise `post_max_size`. |
@@ -236,9 +148,9 @@ new hash, paste it in. Existing devices stay signed in until you also choose `�
 | An *Embed* tile is blank or says the site refuses | Many sites (Google, GitHub, banks, most news sites) forbid being shown inside other pages. Home Base checks this (needs cURL) and shows a simplified copy instead; `⋯ → Show` switches between *Automatic*, *Live page* and *Simplified copy*. *Open in new tab* always works. YouTube/Spotify/Vimeo links are converted to their embeddable form automatically. |
 | YouTube says **"Error 153"** | Fixed in this version: the player now tells YouTube the site's address (only the address, never the page). Update the Embed and YouTube playlist gadgets. If it persists, a browser extension may be stripping referrers. |
 | *Open all* opens only one link | The browser's pop-up blocker. Click the blocked-pop-up icon in the address bar and choose *Always allow pop-ups from task.francistsoi.com*, then press *Open all* again. |
-| The Gadgets page says adding gadgets is *not available* | It says why: no PHP `zip` extension (ask the host), `homebase-private/gadgets` not writable (permissions 755/775), or `HB_GADGET_INSTALL=0`. You can always add a gadget folder by FTP. |
-| A tile says its gadget *did not load* | That gadget's code has an error (often a half-uploaded file). Upload or install it again, or delete it on the Gadgets page. The rest keeps working. |
-| A tile says its gadget is *switched off or not installed* | Switch it on, or install it again (its zip from `dist/gadgets/` or one you downloaded). Its content was kept. |
+| *Gadgets & updates* says dropping files is *not available*, or an update cannot run | It says why: no PHP `zip` extension (ask the host), PHP may not write to the Home Base folders (permissions 755), or `HB_GADGET_INSTALL=0`. |
+| A tile says its gadget *did not load* | That gadget's code has an error. Drop a good copy of its zip on *Gadgets & updates* (built-in: Delete it, then Add it again), or delete it. The rest keeps working. |
+| A tile says its gadget is *switched off or not installed* | Switch it on, or add it again under *Built-in gadgets you can add* (or drop its zip). Its content was kept. |
 | A share link says *Not Found* | `mod_rewrite` is off. Use the long form `…/share.php?s=<name>` (see *Share links*). |
 | A share link says *not available* | It was switched off, it expired, or its scenario was deleted. Make a new one in `⋯ → Share this scenario…`. |
 | YouTube playlist shows ads | YouTube decides this; it cannot be changed from Home Base. YouTube Premium (signed in, same browser) removes ads. For an ad-free playlist use the *Music player* tile with your own audio files. |
@@ -274,6 +186,11 @@ new hash, paste it in. Existing devices stay signed in until you also choose `�
   need (a feed listed in a shared News tile, the weather for the shared place). Writes, your other scenarios, settings, trash, search,
   backup and the share list all answer *401/403*. Passwords are stored hashed; changing it or switching the link off ends every
   visitor's access at once.
+- **The installer** (`homebase-setup.php`) only installs on a site that has no Home Base yet, only within 2 hours of being
+  uploaded, and deletes itself when done or expired; on an installed site it only updates, after your passphrase (5 tries,
+  then 15 minutes). **Updates** need your session, the CSRF token and your passphrase; the package is checked first (only
+  the expected folders, no `../` paths, links or settings files), files are swapped in one by one with a journal and put back
+  if anything fails, and `.env`, your data and your gadgets are never touched.
 - **Gadgets** live outside the web folder: the browser only ever receives a gadget's script, styles and asset files, never
   its `server.php` or notes. Installing one needs your session, the CSRF token and your passphrase again; the zip is checked
   before anything is written (no `../` paths, links, hidden or unknown file types, size limits, PHP must parse) and swapped

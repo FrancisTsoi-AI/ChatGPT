@@ -3,7 +3,8 @@
 A private start page for **task.francistsoi.com**: your toolbox, files, to-dos and loose thoughts as
 tiles on one drag-and-drop grid, with a separate layout per scenario (Work, Idea, PhD, and any you add).
 
-* **Deploying?** Read [DEPLOY.md](DEPLOY.md) — the complete step-by-step procedure.
+* **Installing?** Like WordPress, in one file: upload `dist/homebase-setup.php` to the site and open it. See [DEPLOY.md](DEPLOY.md).
+  After that, gadgets and Home Base updates are managed in the browser (`⋯ → Gadgets & updates…`).
 * **Developing with Claude Code?** Read [CLAUDE.md](CLAUDE.md).
 
 ## Using it
@@ -57,15 +58,18 @@ moved to another scenario, shared into another scenario (*Also show in…*), and
 **About ads on YouTube:** an embedded YouTube playlist is played by YouTube, which decides about ads. Home Base cannot remove them (YouTube
 Premium, signed in in the same browser, does). For an ad-free playlist use the **Music player** tile with your own audio files.
 
-### Gadgets: add, update, switch off, delete (like WordPress plug-ins)
+### Gadgets & updates (like WordPress's Plugins and Updates)
 
-Every tile type is a **gadget**, and each gadget is one self-contained folder. Open **`⋯ → Gadgets…`**:
+Every tile type is a **gadget** (a plug-in), and each gadget is one self-contained folder. Open **`⋯ → Gadgets & updates…`**:
 
 * **Drop a gadget `.zip`** on the box to install it, or to update one you have (same name, newer version). You see
   what it is (name, version, author, size, whether it has server code) and confirm with your passphrase.
+* **Built-in gadgets you can add:** the ones that come with Home Base but are not installed (say, one you deleted) are listed
+  with an **Add** button. No file needed. When a Home Base update brings a newer built-in gadget, it shows **Update**.
 * **Switch off / on** a gadget without deleting anything; **⬇ .zip** downloads it; **Delete…** removes it, optionally
   moving its tiles to the Trash. Nothing else is affected, and a gadget with an error only breaks its own tiles.
-* Every built-in gadget is also available as its own zip in `dist/gadgets/`, so a deleted one can be put back.
+* **Update Home Base itself:** drop the newer `homebase-setup.php` (or `homebase.zip`) on the same box. Your tiles, files,
+  settings and gadgets are kept; if anything fails, every replaced file is put back.
 
 Only install gadgets from people you trust. To build one, see [docs/GADGET_API.md](docs/GADGET_API.md).
 
@@ -109,14 +113,15 @@ schema.sql                the 9 MySQL tables (the gateway applies it itself when
 docs/GADGET_API.md        how a gadget is built and packaged: the plug-in interface
 tests/                    API test and browser tests (Playwright); tests/lib/zip.cjs builds test zips
 tools/build-zip.py        builds the upload zip, and one zip per gadget, into dist/
-dist/                     homebase-task.francistsoi.com.zip (the site) and gadgets/<type>-<version>.zip
+dist/                     homebase-setup.php (THE file: installs or updates), homebase.zip, gadgets/<type>-<version>.zip
+tools/installer.php       the installer's program (build-zip.py adds private/src/package.php and the package to it)
 DEPLOY.md  CLAUDE.md
 ```
 
 **Gadgets are plug-ins.** Every tile type is a class that extends `HB.Gadget`, kept with its manifest, styles and
 server code in one folder. The server learns about it from the folder, so nothing else has to change. To improve
 one gadget, open (or hand to an AI) [docs/GADGET_API.md](docs/GADGET_API.md) plus that gadget's folder, not the whole
-app; zip the result and drop it on the Gadgets page. To add one, copy a folder and change it.
+app; zip the result and drop it on the Gadgets & updates page. To add one, copy a folder and change it.
 
 On the server the folders are named `web/` (document root of the subdomain) and `homebase-private/`
 (outside it); the build script renames them.
