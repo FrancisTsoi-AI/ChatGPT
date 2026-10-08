@@ -1,0 +1,12 @@
+{
+  "type": "music",
+  "version": "1.0.0",
+  "label": "Music player",
+  "icon": "🎵",
+  "hint": "Playlist of your audio files",
+  "author": "Home Base",
+  "group": "Files & media",
+  "order": 190,
+  "size": {"w": 4, "h": 6},
+  "uploads": "audio"
+}

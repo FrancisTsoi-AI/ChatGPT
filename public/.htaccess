@@ -22,10 +22,6 @@ Options -Indexes
 <FilesMatch "^_">
   Require all denied
 </FilesMatch>
-# Gadget folders: only the code and styles are served, not their notes
-<FilesMatch "^README\.md$">
-  Require all denied
-</FilesMatch>
 
 # Static files: let the browser cache them (the app's own JS/CSS come from assets.php?v=<version>, which changes with every upload).
 <IfModule mod_expires.c>

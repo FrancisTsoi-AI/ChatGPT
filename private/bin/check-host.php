@@ -4,6 +4,7 @@ declare(strict_types=1);
 // Usage:  php private/bin/check-host.php     (stage S0 host check, from a terminal)
 require __DIR__ . '/../src/config.php';
 require __DIR__ . '/../src/db.php';
+require __DIR__ . '/../src/gadgets.php';
 require __DIR__ . '/../src/setup.php';
 
 foreach (hb_host_checks() as $r) {

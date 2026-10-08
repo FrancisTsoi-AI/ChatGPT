@@ -206,7 +206,9 @@
       const sig = HB.tileSig(tile);
       if (!force && sig === en.sig) return;
       const gadget = HB.gadgets.instance(tile);
-      if (!force && gadget && gadget.keep(HB.tileCtx(tile))) return; // e.g. a note being typed in
+      let keep = false;
+      try { keep = !force && !!gadget && gadget.keep(HB.tileCtx(tile)); } catch (e) { console.error(e); }
+      if (keep) return; // e.g. a note being typed in
       const body = en.body;
       const active = document.activeElement;
       if (!force && active && body.contains(active) && active.classList.contains('inline-edit')) { this.needRender = true; return; }
@@ -218,7 +220,7 @@
       HB.runCleanups(body);
       body.replaceChildren();
       const ctx = HB.tileCtx(tile);
-      if (!gadget) body.append(h('div', { class: 'empty', text: 'The "' + tile.type + '" gadget is not installed.' }));
+      if (!gadget) body.append(HB.gadgetMissing(tile));
       else if (!ctx.src) HB.missingSource(body, tile);
       else { try { gadget.render(body, ctx); } catch (e) { console.error(e); body.append(h('div', { class: 'empty', text: 'This tile failed to draw.' })); } }
       body.scrollTop = scroll;
@@ -322,6 +324,7 @@
     nextY() { return S.tilesOf(this.scenarioId).reduce((m, t) => Math.max(m, t.y + t.height), 0); },
 
     async addTile(type, extra) {
+      if (!HB.gadgets.has(type)) { HB.ui.toast('The “' + type + '” gadget is not installed or switched off (⋯ → Gadgets).', { type: 'error' }); return null; }
       const size = HB.gadgets.size(type);
       const info = HB.typeInfo[type];
       const row = await HB.safeCreate('tiles', Object.assign({
@@ -359,7 +362,8 @@
         { header: 'Colour' },
         { swatches: { value: tile.colour, onPick: (c) => S.update('tiles', id, { colour: c }, { label: 'tile colour' }) } },
       ];
-      const own = gadget && ctx.src ? gadget.menu(tile, ctx) : [];
+      let own = [];
+      try { own = gadget && ctx.src ? gadget.menu(tile, ctx) : []; } catch (e) { console.error(e); }
       if (own && own.length) items.push({ sep: true }, ...own);
       items.push({ sep: true });
       items.push({ label: this.maxId === id ? 'Restore from enlarged' : 'Enlarge to fill the screen', hint: 'Esc', onClick: () => this.toggleMax(id) });

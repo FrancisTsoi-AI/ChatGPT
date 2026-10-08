@@ -263,6 +263,29 @@ kbd { font: 11px ui-monospace, monospace; border: 1px solid var(--line); border-
 .share-copy code { flex: 1; background: var(--card2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font: 13px ui-monospace, monospace; word-break: break-all; }
 .share-copy .muted { width: 64px; }
 
+/* ---- Gadgets page (gadget-admin.js) ---- */
+.ga-drop { border: 2px dashed var(--line); border-radius: 14px; padding: 18px; text-align: center; cursor: pointer; margin-bottom: 14px; background: var(--card2); }
+.ga-drop:hover, .ga-drop:focus-visible, .ga-drop.hot { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 8%, var(--card2)); outline: none; }
+.ga-drop.off { cursor: default; opacity: .75; }
+.ga-drop-big { font-weight: 650; margin-bottom: 4px; }
+.ga-list, .ga-missing { display: flex; flex-direction: column; gap: 6px; }
+.ga-missing h3 { font-size: 14px; margin: 14px 0 4px; }
+.ga-row { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+.ga-row.is-off { opacity: .6; }
+.ga-icon { font-size: 22px; width: 32px; text-align: center; flex: none; }
+.ga-info { flex: 1; min-width: 0; }
+.ga-info code { font-size: 11px; }
+.ga-btns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.ga-badge { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--hover); color: var(--muted); margin-left: 4px; }
+.ga-badge.off { background: var(--card2); border: 1px solid var(--line); }
+.ga-badge.bad { background: var(--danger); color: #fff; }
+.ga-head { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
+.ga-warn { border-left: 3px solid var(--warn); background: var(--card2); padding: 6px 10px; border-radius: 6px; margin: 10px 0; font-size: 13px; }
+.ga-warn.strong { border-left-color: var(--danger); }
+.ga-warn p { margin: 4px 0; }
+.gadget-missing p { margin: 0 0 8px; }
+@media (max-width: 600px) { .ga-row { flex-wrap: wrap; } .ga-btns { width: 100%; justify-content: flex-start; } }
+
 /* share page: read-only, so the editing controls are hidden */
 .share-badge { font-size: 12px; color: var(--muted); background: var(--hover); border-radius: 999px; padding: 4px 10px; white-space: nowrap; }
 .readonly .x, .readonly .add-row, .readonly .add-cd, .readonly .thought-input, .readonly .note-tools .btn,

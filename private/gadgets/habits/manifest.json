@@ -1,0 +1,12 @@
+{
+  "type": "habits",
+  "version": "1.0.0",
+  "label": "Habit tracker",
+  "icon": "🔥",
+  "hint": "Daily check-offs and streaks",
+  "author": "Home Base",
+  "group": "Focus",
+  "order": 120,
+  "size": {"w": 5, "h": 4},
+  "entryKinds": ["habit"]
+}

@@ -1,0 +1,11 @@
+{
+  "type": "stats",
+  "version": "1.0.0",
+  "label": "Stats & progress",
+  "icon": "📊",
+  "hint": "Counters and progress bars",
+  "author": "Home Base",
+  "group": "Focus",
+  "order": 130,
+  "size": {"w": 3, "h": 4}
+}

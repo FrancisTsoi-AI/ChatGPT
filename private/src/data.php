@@ -18,7 +18,7 @@ function hb_spec(): array
         'tiles' => [
             'parent' => ['scenario_id', 'scenarios'],
             'cols' => [
-                'scenario_id' => 'int', 'type' => 'enum:' . implode(',', hb_tile_types()),
+                'scenario_id' => 'int', 'type' => 'enum:' . implode(',', hb_tile_types() ?: ['none']),
                 'x' => 'int', 'y' => 'int', 'width' => 'int', 'height' => 'int',
                 'title' => 'str:120', 'colour' => 'str:20', 'settings' => 'json',
             ],
@@ -277,10 +277,14 @@ function hb_seed_if_empty(): void
         ],
     ];
     $pos = 0;
+    $installed = hb_tile_types(); // a gadget you removed is simply left out
     foreach ($layouts as $name => $tiles) {
         hb_q('INSERT INTO scenarios (name, position) VALUES (?, ?)', [$name, $pos++]);
         $sid = (int) hb_db()->lastInsertId();
         foreach ($tiles as [$type, $title, $x, $y, $w, $h, $settings]) {
+            if (!in_array($type, $installed, true)) {
+                continue;
+            }
             hb_q(
                 'INSERT INTO tiles (scenario_id, type, x, y, width, height, title, settings) VALUES (?,?,?,?,?,?,?,?)',
                 [$sid, $type, $x, $y, $w, $h, $title, $settings ? json_encode($settings) : null]

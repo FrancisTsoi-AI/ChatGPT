@@ -42,7 +42,7 @@ $asset = fn(string $p) => $e($p . '?v=' . (is_file(__DIR__ . '/' . $p) ? filemti
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Cpath d='M8 15l8-7 8 7v9h-5v-6h-6v6H8z' fill='white'/%3E%3C/svg%3E">
 <script src="<?= $asset('js/theme-boot.js') ?>"></script>
 <link rel="stylesheet" href="<?= $asset('vendor/gridstack/gridstack.min.css') ?>">
-<link rel="stylesheet" href="assets.php?b=css&amp;v=<?= hb_asset_version('css') ?>">
+<?= hb_asset_css_tags((bool) $open) ?>
 </head>
 <?php if (!$available): ?>
 <body class="login-page">
@@ -83,7 +83,7 @@ $asset = fn(string $p) => $e($p . '?v=' . (is_file(__DIR__ . '/' . $p) ? filemti
 <audio id="audio" preload="none"></audio>
 <script src="<?= $asset('vendor/gridstack/gridstack-all.js') ?>"></script>
 <script src="<?= $asset('vendor/sortable/Sortable.min.js') ?>"></script>
-<script src="assets.php?b=js&amp;v=<?= hb_asset_version('js') ?>"></script>
+<?= hb_asset_js_tags() ?>
 </body>
 <?php endif; ?>
 </html>
