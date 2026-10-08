@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
-"""Build the upload zip: dist/homebase-task.francistsoi.com.zip
+"""Build the upload zip, plus one installable zip per gadget.
 
-Layout inside the zip (see DEPLOY.md):
+dist/homebase-task.francistsoi.com.zip (see DEPLOY.md):
   homebase-upload/web/               <- public/  (document root of the subdomain)
-  homebase-upload/homebase-private/  <- private/ (outside the web folder), WITHOUT .env or stored data
+  homebase-upload/homebase-private/  <- private/ (outside the web folder), WITHOUT .env or stored data;
+                                        its gadgets/ folder holds every gadget, one folder each
   homebase-upload/{DEPLOY.md,README.md,GADGET_API.md,schema.sql}
+dist/gadgets/<type>-<version>.zip    one gadget each, the format the Gadgets page installs
 """
+import glob
+import json
 import os
+import shutil
 import sys
 import zipfile
 
@@ -30,6 +35,8 @@ def add_tree(z, src, dst, skip=lambda rel: False):
 def skip_private(rel):
     if rel == '.env' or rel.endswith('.log'):
         return True
+    if rel.startswith('gadgets/') and any(p.startswith('.') for p in rel.split('/')[1:]):
+        return True  # half-installed staging folders and other dot files never ship
     if rel.startswith('storage/'):
         parts = rel.split('/')
         # keep only the folder skeleton (.gitkeep) and storage/.htaccess; never stored data
@@ -57,6 +64,27 @@ def main():
     if bad:
         sys.exit('refusing to ship: ' + ', '.join(bad))
     print(f'{OUT}\n{len(names)} files, {os.path.getsize(OUT) / 1024:.0f} KB')
+    build_gadget_zips()
+
+
+def build_gadget_zips():
+    """dist/gadgets/<type>-<version>.zip: each gadget folder on its own, ready to drop on the Gadgets page."""
+    out_dir = os.path.join(ROOT, 'dist', 'gadgets')
+    shutil.rmtree(out_dir, ignore_errors=True)
+    os.makedirs(out_dir)
+    for mf in sorted(glob.glob(os.path.join(ROOT, 'private', 'gadgets', '*', 'manifest.json'))):
+        src = os.path.dirname(mf)
+        m = json.load(open(mf, encoding='utf-8'))
+        name = os.path.join(out_dir, f"{m['type']}-{m.get('version', '1.0.0')}.zip")
+        with zipfile.ZipFile(name, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as z:
+            for base, dirs, files in os.walk(src):
+                dirs[:] = sorted(d for d in dirs if not d.startswith('.'))
+                for f in sorted(files):
+                    if f.startswith('.'):
+                        continue
+                    full = os.path.join(base, f)
+                    z.write(full, m['type'] + '/' + os.path.relpath(full, src).replace(os.sep, '/'))
+    print(f'{out_dir}: {len(os.listdir(out_dir))} gadget zips')
 
 
 if __name__ == '__main__':

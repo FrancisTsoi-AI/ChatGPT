@@ -55,6 +55,18 @@ moved to another scenario, shared into another scenario (*Also show in…*), and
 **About ads on YouTube:** an embedded YouTube playlist is played by YouTube, which decides about ads. Home Base cannot remove them (YouTube
 Premium, signed in in the same browser, does). For an ad-free playlist use the **Music player** tile with your own audio files.
 
+### Gadgets: add, update, switch off, delete (like WordPress plug-ins)
+
+Every tile type is a **gadget**, and each gadget is one self-contained folder. Open **`⋯ → Gadgets…`**:
+
+* **Drop a gadget `.zip`** on the box to install it, or to update one you have (same name, newer version). You see
+  what it is (name, version, author, size, whether it has server code) and confirm with your passphrase.
+* **Switch off / on** a gadget without deleting anything; **⬇ .zip** downloads it; **Delete…** removes it, optionally
+  moving its tiles to the Trash. Nothing else is affected, and a gadget with an error only breaks its own tiles.
+* Every built-in gadget is also available as its own zip in `dist/gadgets/`, so a deleted one can be put back.
+
+Only install gadgets from people you trust. To build one, see [docs/GADGET_API.md](docs/GADGET_API.md).
+
 ### Scenarios, sharing, signing out
 
 * **Delete a scenario:** `⋯ → This scenario → Delete this scenario…` (or right-click its tab). It goes to the Trash with its tiles
@@ -87,20 +99,20 @@ Premium, signed in in the same browser, does). For an ad-free playlist use the *
 
 ```
 web/ → public/            the web folder (page, API entry points, core css/js, vendored GridStack + SortableJS)
-  gadgets/<type>/         ONE FOLDER PER TILE TYPE: manifest.json, gadget.js (a class), gadget.css, README.md
 private/                  gateway code (src/), CLI helpers (bin/), storage/ (files, sessions…), .env
-  gadgets/<type>.php      server actions of the gadgets that need the server (feeds, weather, embed, writer…)
+  gadgets/<type>/         ONE FOLDER PER GADGET: manifest.json, gadget.js (a class), gadget.css, server.php, README.md
 schema.sql                the 9 MySQL tables (the gateway applies it itself when a new version needs a new table)
-docs/GADGET_API.md        how a gadget is built: the interface for adding or upgrading one tile type on its own
-tests/                    API test and browser tests (Playwright)
-tools/build-zip.py        builds the upload zip into dist/
+docs/GADGET_API.md        how a gadget is built and packaged: the plug-in interface
+tests/                    API test and browser tests (Playwright); tests/lib/zip.cjs builds test zips
+tools/build-zip.py        builds the upload zip, and one zip per gadget, into dist/
+dist/                     homebase-task.francistsoi.com.zip (the site) and gadgets/<type>-<version>.zip
 DEPLOY.md  CLAUDE.md
 ```
 
-**Gadgets are modules.** Every tile type is a class that extends `HB.Gadget`, kept in its own folder with a small
-manifest. The server learns about it from the folder, so nothing else has to change. To improve one gadget, open (or
-hand to an AI) [docs/GADGET_API.md](docs/GADGET_API.md) plus that gadget's folder, not the whole app. To add one, copy a
-folder and change it.
+**Gadgets are plug-ins.** Every tile type is a class that extends `HB.Gadget`, kept with its manifest, styles and
+server code in one folder. The server learns about it from the folder, so nothing else has to change. To improve
+one gadget, open (or hand to an AI) [docs/GADGET_API.md](docs/GADGET_API.md) plus that gadget's folder, not the whole
+app; zip the result and drop it on the Gadgets page. To add one, copy a folder and change it.
 
 On the server the folders are named `web/` (document root of the subdomain) and `homebase-private/`
 (outside it); the build script renames them.

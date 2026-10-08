@@ -13,8 +13,11 @@ homebase-upload/
 ├─ GADGET_API.md          how a gadget (tile type) is built: hand it to an AI with one gadget's folder to change just that
 ├─ schema.sql             the database tables (you run it in phpMyAdmin the first time)
 ├─ web/                   → goes into the web folder of task.francistsoi.com
-└─ homebase-private/      → goes NEXT TO that web folder, never inside it
+└─ homebase-private/      → goes NEXT TO that web folder, never inside it (its gadgets/ folder holds every gadget)
 ```
+
+Separately, `dist/gadgets/` in the repository holds each gadget as its own `.zip` (e.g. `writer-1.0.0.zip`), the
+format the in-app **Gadgets page** installs (see *Gadgets* below).
 
 > **Why two folders?** `web/` is public: the page, styles and scripts. `homebase-private/` holds the
 > gateway code, your database password (`.env`) and every file you upload. It must sit outside the
@@ -68,11 +71,12 @@ You do **not** need to raise `upload_max_filesize`: big files are sent in chunks
    /home/USER/
    ├─ homebase-private/          ← private (outside the web)
    │  ├─ .env.example  schema.sql
-   │  ├─ src/  bin/  gadgets/  storage/
+   │  ├─ src/  bin/  storage/
+   │  └─ gadgets/                ← one folder per gadget (clock/, writer/, youtube/ …)
    └─ task.francistsoi.com/      ← the subdomain's document root
       ├─ index.php  api.php  assets.php  file.php  share.php  export.php  setup.php  _boot.php
       ├─ .htaccess
-      ├─ css/  js/  gadgets/  vendor/
+      ├─ css/  js/  vendor/
    ```
 
    For the older layout (`/home/USER/public_html/task`) keep `homebase-private` in `/home/USER/`
@@ -83,7 +87,8 @@ You do **not** need to raise `upload_max_filesize`: big files are sent in chunks
 
 4. Make sure these folders are writable by PHP (normally the default; use permissions `755`, or `700`
    if your host runs PHP as your own user): `homebase-private/storage/files`, `…/sessions`,
-   `…/ratelimit`, `…/tmp`, `…/cache`.
+   `…/ratelimit`, `…/tmp`, `…/cache`. To install gadgets from the browser, `homebase-private/gadgets` must be
+   writable too (same permissions); otherwise you add gadgets by FTP.
 
 ## Step 5 · Create the tables
 
@@ -128,6 +133,7 @@ Open **https://task.francistsoi.com** and sign in. Then walk through this "done 
 - [ ] Add a *YouTube playlist* tile, paste two video links, press ⏭: the second video plays (no "Error 153")
 - [ ] `⋯ → Share this scenario…` → *New share link* named `test`, open `https://task.francistsoi.com/test` in a private
       window, type the password: you see the scenario read-only. Then *Switch off* the link
+- [ ] `⋯ → Gadgets…` lists 22 gadgets and the drop box says *Drop a gadget .zip here* (not "not available")
 
 ## Step 8 · Make it your start page
 
@@ -149,22 +155,39 @@ The page draws from a local cache first, so it appears immediately and syncs in 
 
 ## Updating to a new version
 
-1. Upload the new `web/` files over the old ones, **including the `gadgets/` folder** and the hidden `.htaccess`.
+1. Upload the new `web/` files over the old ones, including the hidden `.htaccess`.
    Browsers pick up the change by themselves: the scripts come from `assets.php`, whose address changes whenever a file changes.
-2. Upload the new `homebase-private/src/`, `bin/`, `gadgets/` and `schema.sql` over the old ones.
-3. **Do not overwrite** `homebase-private/.env` or anything in `homebase-private/storage/`.
-4. **Nothing to do for the database:** when a new version needs a new table (this one adds `shares`), the gateway creates it by
-   itself on first load (it reads `homebase-private/schema.sql`). If your database user lacks CREATE rights you will see a
-   message asking you to import `schema.sql` in phpMyAdmin instead.
-5. *Coming from the previous version:* delete the old folder `web/js/tiles/`. Its files moved to `web/gadgets/` and are no
-   longer used.
+2. Upload the new `homebase-private/src/`, `bin/` and `schema.sql` over the old ones.
+3. Gadgets: upload the folders in `homebase-private/gadgets/` **for the gadgets you use** (a newer version replaces the
+   older one). Skip the ones you deleted on purpose, or they come back. Gadgets you installed yourself are not in the zip and
+   are left alone. (You can also update gadgets one by one on the Gadgets page with the zips from `dist/gadgets/`.)
+4. **Do not overwrite** `homebase-private/.env` or anything in `homebase-private/storage/`.
+5. **Nothing to do for the database:** when a new version needs a new table, the gateway creates it by itself on first load
+   (it reads `homebase-private/schema.sql`). If your database user lacks CREATE rights you will see a message asking you to
+   import `schema.sql` in phpMyAdmin instead.
+6. *Coming from an earlier version*, delete what moved:
+   - `web/js/tiles/` (version 2) and `web/gadgets/` (version 3): gadgets now live in `homebase-private/gadgets/`;
+   - the loose files `homebase-private/gadgets/*.php` (`embed.php`, `feeds.php`, `reading.php`, `weather.php`, `writer.php`,
+     `youtube.php`): each is now `server.php` inside its gadget's folder.
 
-### Upgrading one gadget
+## Gadgets (add, update, switch off, delete, like WordPress plug-ins)
 
-Each tile type lives in its own folder (see `GADGET_API.md`, next to this guide; `docs/GADGET_API.md` in the repository). To update only, say,
-the YouTube playlist, upload `web/gadgets/youtube/` (and `homebase-private/gadgets/youtube.php` if it changed) and reload. A new
-gadget is the same: upload its folder and it shows up in **+ Tile**. Removing a folder removes the tile type. Its tiles stay in
-the database and come back when the folder does.
+Every tile type is a **gadget**: one folder in `homebase-private/gadgets/` holding all of it (code, styles, server part, notes).
+Open **`⋯ → Gadgets…`** (or *Install or manage gadgets…* at the bottom of **+ Tile**):
+
+- **Install or update:** drag a gadget `.zip` onto the box (or click it to choose the file). Home Base checks the zip, shows
+  what it is (name, version, author, size, and whether it has server code), and asks for your passphrase. A zip with the
+  same name as an installed gadget updates it; your tiles and their content stay.
+- **Switch off / on:** stops loading a gadget without deleting anything. Its tiles say it is switched off.
+- **⬇ .zip:** downloads a gadget, to keep a copy, to change it (with an AI and `GADGET_API.md`), or to install it elsewhere.
+- **Delete…:** removes the gadget's folder. Choose whether its tiles go to the Trash (restorable for 30 days) or stay
+  until you install it again. Other gadgets are not affected; built-in ones can be deleted too, and reinstalled from
+  their zip in `dist/gadgets/` or one you downloaded.
+
+Only install gadgets from people you trust: a gadget runs inside your Home Base, and one with server code runs on your
+web server. Installing from the browser needs PHP's `zip` extension and a writable `homebase-private/gadgets`; without
+them (or with `HB_GADGET_INSTALL=0` in `.env`), unzip the gadget and upload its folder into `homebase-private/gadgets/`
+by FTP; delete a folder the same way.
 
 ## Share links
 
@@ -188,6 +211,7 @@ works on the host:
 | `HB_LOGIN_MAX_TRIES` / `HB_LOGIN_PAUSE_MIN` | 5 / 15 | Wrong tries, then pause in minutes |
 | `HB_TRASH_DAYS` | 30 | Days before trashed items are purged for good |
 | `HB_DEBUG` | 0 | `1` shows error details in API replies while you set things up |
+| `HB_GADGET_INSTALL` | 1 | `0` switches off installing and updating gadgets from the browser (FTP still works) |
 
 To **change your passphrase**: empty `HB_PASSPHRASE_HASH=''` in `.env`, open `setup.php` again, generate a
 new hash, paste it in. Existing devices stay signed in until you also choose `⋯ → Sign out on all devices…` in the app
@@ -207,8 +231,11 @@ new hash, paste it in. Existing devices stay signed in until you also choose `�
 | Uploads stop at a certain size | The progress toast shows the reason. Home Base uses chunks; if your host caps request bodies below ~256 KB, ask the host to raise `post_max_size`. |
 | *Feeds* / *Weather* say "no cURL" or "Could not load that address" | Your host has no `curl` extension, or blocks outgoing connections. Ask the host to enable PHP `curl` (and `simplexml`), or skip those two tiles. Private/LAN addresses are always refused on purpose. |
 | An *Embed* tile is blank or says the site refuses | Many sites (Google, GitHub, banks, most news sites) forbid being shown inside other pages. Home Base checks this (needs cURL) and shows a simplified copy instead; `⋯ → Show` switches between *Automatic*, *Live page* and *Simplified copy*. *Open in new tab* always works. YouTube/Spotify/Vimeo links are converted to their embeddable form automatically. |
-| YouTube says **"Error 153"** | Fixed in this version: the player now tells YouTube the site's address (only the address, never the page). Upload the new `web/gadgets/` folder. If it persists, a browser extension may be stripping referrers. |
+| YouTube says **"Error 153"** | Fixed in this version: the player now tells YouTube the site's address (only the address, never the page). Update the Embed and YouTube playlist gadgets. If it persists, a browser extension may be stripping referrers. |
 | *Open all* opens only one link | The browser's pop-up blocker. Click the blocked-pop-up icon in the address bar and choose *Always allow pop-ups from task.francistsoi.com*, then press *Open all* again. |
+| The Gadgets page says adding gadgets is *not available* | It says why: no PHP `zip` extension (ask the host), `homebase-private/gadgets` not writable (permissions 755/775), or `HB_GADGET_INSTALL=0`. You can always add a gadget folder by FTP. |
+| A tile says its gadget *did not load* | That gadget's code has an error (often a half-uploaded file). Upload or install it again, or delete it on the Gadgets page. The rest keeps working. |
+| A tile says its gadget is *switched off or not installed* | Switch it on, or install it again (its zip from `dist/gadgets/` or one you downloaded). Its content was kept. |
 | A share link says *Not Found* | `mod_rewrite` is off. Use the long form `…/share.php?s=<name>` (see *Share links*). |
 | A share link says *not available* | It was switched off, it expired, or its scenario was deleted. Make a new one in `⋯ → Share this scenario…`. |
 | YouTube playlist shows ads | YouTube decides this; it cannot be changed from Home Base. YouTube Premium (signed in, same browser) removes ads. For an ad-free playlist use the *Music player* tile with your own audio files. |
@@ -244,6 +271,10 @@ new hash, paste it in. Existing devices stay signed in until you also choose `�
   need (a feed listed in a shared News tile, the weather for the shared place). Writes, your other scenarios, settings, trash, search,
   backup and the share list all answer *401/403*. Passwords are stored hashed; changing it or switching the link off ends every
   visitor's access at once.
+- **Gadgets** live outside the web folder: the browser only ever receives a gadget's script, styles and asset files, never
+  its `server.php` or notes. Installing one needs your session, the CSRF token and your passphrase again; the zip is checked
+  before anything is written (no `../` paths, links, hidden or unknown file types, size limits, PHP must parse) and swapped
+  in with a single rename. Share-link visitors can only call the server actions a gadget lists in `shareActions`.
 - **Sign out on all devices** changes a key stored in the database that every session must match, so every other device is signed
   out on its next request (share-link visitors are not affected).
 - Markdown notes, quotes and feed text are rendered as plain DOM text, never as HTML.
