@@ -1,8 +1,8 @@
 {
   "type": "files",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "label": "Files",
-  "icon": "📁",
+  "icon": "\ud83d\udcc1",
   "hint": "Uploads, downloads, previews",
   "group": "Files & media",
   "order": 180,
@@ -10,5 +10,8 @@
     "w": 4,
     "h": 5
   },
-  "uploads": "any"
+  "uploads": "any",
+  "entryKinds": [
+    "folder"
+  ]
 }

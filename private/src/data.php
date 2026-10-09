@@ -41,7 +41,7 @@ function hb_spec(): array
             'parent' => ['tile_id', 'tiles'],
             // size / stored_name / type are set by the upload endpoint only
             'cols' => [
-                'tile_id' => 'int', 'original_name' => 'str:255', 'colour' => 'str:20',
+                'tile_id' => 'int', 'folder_id' => 'int', 'original_name' => 'str:255', 'colour' => 'str:20',
                 'tags' => 'str:255', 'position' => 'int',
             ],
             'no_create' => true,
@@ -127,7 +127,7 @@ function hb_row(string $table, array $r): array
         }
         if (in_array($k, ['created_at', 'updated_at', 'deleted_at', 'done_at', 'due_at'], true)) {
             $r[$k] = hb_iso($v);
-        } elseif (in_array($k, ['id', 'scenario_id', 'tile_id', 'x', 'y', 'width', 'height', 'position', 'size', 'num'], true)) {
+        } elseif (in_array($k, ['id', 'scenario_id', 'tile_id', 'folder_id', 'x', 'y', 'width', 'height', 'position', 'size', 'num'], true)) {
             $r[$k] = (int) $v;
         }
     }
@@ -188,6 +188,14 @@ function hb_ensure_schema(): void
     static $checked = false;
     if ($checked) {
         return;
+    }
+    try { // a column added by a later version (Files folders): add it in place
+        hb_db()->query('SELECT folder_id FROM files LIMIT 0');
+    } catch (PDOException $e) {
+        if ($e->getCode() !== '42S22') {
+            throw $e;
+        }
+        hb_db()->exec('ALTER TABLE files ADD COLUMN folder_id INT UNSIGNED NOT NULL DEFAULT 0 AFTER tile_id');
     }
     try {
         foreach (['entries', 'shares'] as $t) { // tables added by later versions

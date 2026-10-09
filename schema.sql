@@ -84,6 +84,7 @@ CREATE TABLE IF NOT EXISTS tasks (
 CREATE TABLE IF NOT EXISTS files (
   id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
   tile_id       INT UNSIGNED NOT NULL,
+  folder_id     INT UNSIGNED NOT NULL DEFAULT 0,   -- 0 = top level; else the id of an entries row (kind folder) of the same tile
   original_name VARCHAR(255) NOT NULL,
   stored_name   VARCHAR(80)  NOT NULL,
   size          BIGINT UNSIGNED NOT NULL DEFAULT 0,

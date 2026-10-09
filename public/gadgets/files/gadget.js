@@ -2,7 +2,7 @@
   const HB = window.HB;
 
   HB.gadgets.define('files', class extends HB.Gadget {
-    render(body, ctx) { HB.fileTileRender(body, ctx); }
+    render(body, ctx) { HB.fileTileRender(body, ctx, { folders: true }); }
     menu(tile, ctx) {
       const grid = ctx.settings.view === 'grid';
       return [

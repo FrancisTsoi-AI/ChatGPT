@@ -155,7 +155,9 @@ The page draws from a local cache first, so it appears immediately and syncs in 
 3. **Do not overwrite** `homebase-private/.env` or anything in `homebase-private/storage/`.
 4. **Nothing to do for the database:** when a new version needs a new table (this one adds `shares`), the gateway creates it by
    itself on first load (it reads `homebase-private/schema.sql`). If your database user lacks CREATE rights you will see a
-   message asking you to import `schema.sql` in phpMyAdmin instead.
+   message asking you to import `schema.sql` in phpMyAdmin instead. The same goes for the Files folders: the column
+   `files.folder_id` is added automatically (needs ALTER rights). If it cannot be, run in phpMyAdmin:
+   `ALTER TABLE files ADD COLUMN folder_id INT UNSIGNED NOT NULL DEFAULT 0 AFTER tile_id;`
 5. *Coming from the previous version:* delete the old folder `web/js/tiles/`. Its files moved to `web/gadgets/` and are no
    longer used.
 

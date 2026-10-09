@@ -46,7 +46,7 @@ moved to another scenario, shared into another scenario (*Also show in…*), and
 | **Search box** | Search Google Scholar, Google, Wikipedia, YouTube… and your **libraries (HKMU, Lancaster, HKU)**. A library needs a one-time setup: search for a word on its site, paste the results address, and Home Base learns the pattern. Sites are editable |
 | **News feeds (RSS)** | Several RSS/Atom feeds merged newest-first, unread marks, *Mark all read* |
 | **Weather** | Current conditions and a 5-day forecast for your city (Open-Meteo, no key) |
-| **Files** | Upload by drop or button; preview images, PDF, audio, video, text; download, rename, tag, drag between tiles; list or thumbnail view |
+| **Files** | Upload by drop or button; **nested folders** (new folder, drag a file onto a folder, breadcrumb, a dropped folder keeps its structure); preview images, PDF, audio, video, text; download, rename, tag, drag between tiles; list or thumbnail view |
 | **Music player** | Plays your uploaded audio (**.mp3**, .m4a, .wav, .ogg, .flac…): queue, skip, seek, shuffle, repeat; keeps playing while you switch scenarios. `⋯ → Add audio from Files tiles` moves music you already uploaded elsewhere |
 | **Sketch board** | Draw freehand (colours, sizes, eraser, undo, clear, download PNG); autosaves as an image in the tile |
 

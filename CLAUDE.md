@@ -17,7 +17,8 @@ sketch board, emoji picker for toolbox links, enlarge/restore for every tile.
 **Round 3** built and tested (`tests/v3.cjs`): gadgets are modules (folder + manifest + class, bundled by `assets.php`); Writer
 (rich text / HTML + JS run sandboxed / code; double-click or double-tap empty space adds one); YouTube playlist; Toolbox *Open all* +
 icon view; mp3 recognised by name; embed frame check + sandboxed copy + YouTube referrer fix (Error 153); delete scenario; sign out on
-all devices (session epoch); password + expiry share links at `/<name>` (read-only visitors). Next work = whatever the user asks.
+all devices (session epoch); password + expiry share links at `/<name>` (read-only visitors).
+**Round 4:** Files gadget has nested folders (`tests/folders.cjs`). Next work = whatever the user asks.
 
 ## Layout
 ```
@@ -49,7 +50,7 @@ tiles with `settings.shared_from = <tile id>` are **mirror tiles** (same content
 **`entries`** serves the richer tiles (`kind` must match the tile type: manifests' `entryKinds`, `hb_entry_tile()`; `searchKinds` = what Ctrl+K searches): `card` (a=front, b=back, `due_at`, data={ivl,ease,reps,lapses,first}),
 `quote` (a=text, b=source, data={author,year,page,url}), `reading` (a=title, b=url, data={status,author,note}), `habit` (a=habit id, `day`, num 1/0 — toggled, never deleted),
 `time` (a=label, `day`, num=seconds), `note` (a=Markdown, one row per tile), `doc` (Writer: a=HTML/code, data.mode rich|web|code, one per mode),
-`video` (YouTube: a=title, b=url, data={vid,list,author}). `thoughts` has no `colour` column. `day` rows older than 400 days stay in the DB but are not sent in `state`.
+`video` (YouTube: a=title, b=url, data={vid,list,author}), `folder` (Files: a=name, num=parent folder id, 0 = top; a file's folder is `files.folder_id`, a column `hb_ensure_schema` adds to old databases). `thoughts` has no `colour` column. `day` rows older than 400 days stay in the DB but are not sent in `state`.
 The gateway creates missing tables itself from `schema.sql` (`hb_ensure_schema`). Datetime columns MUST go through `hb_row` ISO conversion (`due_at` once leaked a
 zone-less string, which browsers read as local time: wrong by 8 h in Singapore, UTC+8). Sketch = one `files` row per `sketch` tile, replaced in place via `upload` + `replace_id`.
 Other tiles keep their data in `tiles.settings`: To-do buckets live in the tile's `settings.buckets` (ids urgent/later/brainoff/none + custom); countdown dates in `settings.items`.
@@ -97,9 +98,10 @@ node tests/api.cjs                                 # gateway rules (needs mysql 
 node tests/e2e.cjs                                 # browser e2e (Playwright + Chromium; fresh/empty DB)
 node tests/gadgets.cjs                             # extra tiles; needs the 2nd server + fake feeds (tests/README.md); runs in UTC+8
 node tests/v3.cjs                                  # round 3 (writer, youtube, shares, sign-out-all…); 2nd server; Asia/Singapore
+node tests/folders.cjs                             # Files folders (drag, menu, nest, delete+undo, folder drop, zip, share); fresh DB
 python3 tools/build-zip.py                         # dist/homebase-task.francistsoi.com.zip (never includes .env or storage data)
 ```
-Run all four tests before committing a behaviour change (empty the DB and `storage/cache` before each browser suite);
+Run all five tests before committing a behaviour change (empty the DB and `storage/cache` before each browser suite);
 rebuild and commit the zip when public/ or private/ changes.
 
 ## Rules of the house

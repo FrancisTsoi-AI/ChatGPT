@@ -1,6 +1,6 @@
 # Tests
 
-Four scripts, all plain Node (no framework). They need a **throw-away database** (they create and delete
+Six scripts, all plain Node (no framework). They need a **throw-away database** (they create and delete
 data) and the dev server running.
 
 ```bash
@@ -25,6 +25,11 @@ BASE=http://127.0.0.1:8082 PLAYWRIGHT_PATH=... CHROME=... node tests/gadgets.cjs
 #    YouTube playlist, delete scenario, share links (password, expiry, read-only scope), sign out on all devices.
 #    Same second server; also needs the mysql CLI (to expire a link). Browser runs in Asia/Singapore time.
 BASE=http://127.0.0.1:8082 STORAGE=private/storage MYSQL="mysql homebase" PLAYWRIGHT_PATH=... CHROME=... node tests/v3.cjs
+```
+```bash
+# 6. Files gadget folders: create, open, nest, drag + menu moves, delete folder (+ undo), upload into a folder, folder drop,
+#    zip paths, share page. Main server (:8080), fresh DB, needs nothing else.
+PLAYWRIGHT_PATH=... CHROME=... node tests/folders.cjs
 ```
 Before each browser suite, empty the tables **and** `private/storage/cache/` (the server caches what it fetched for
 6–24 h by address, so a cached answer from another suite's fake server would be served).
