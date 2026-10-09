@@ -1,0 +1,25 @@
+.pr-bar { display: flex; gap: 6px; margin-bottom: 8px; }
+.pr-input { flex: 1; min-width: 0; }
+.pr-card { border: 1px solid var(--line); border-radius: var(--radius); background: var(--card2); padding: 8px 10px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 4px; }
+.pr-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.pr-name { font-size: 1.15em; overflow-wrap: anywhere; }
+.pr-main { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.pr-ipa { font-family: "Charis SIL", "Doulos SIL", "Gentium Plus", "Segoe UI", "Lucida Sans Unicode", sans-serif; }
+.pr-ipa.big { font-size: 1.2em; }
+.pr-accent { display: flex; align-items: center; gap: 8px; }
+.pr-accent .pr-ipa { flex: 1; }
+.pr-flag { white-space: nowrap; }
+.pr-links { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.pr-links a { color: var(--brand); text-decoration: none; }
+.pr-links a:hover { text-decoration: underline; }
+.pr-btns { display: flex; justify-content: flex-end; align-items: center; gap: 6px; }
+.pr-sep { border-bottom: 1px solid var(--line); margin: 4px 0; }
+.pr-list { display: flex; flex-direction: column; }
+.pr-row { display: flex; align-items: center; gap: 8px; padding: 3px 4px; border-radius: 6px; cursor: pointer; }
+.pr-row:hover { background: var(--hover); }
+.pr-row.on { background: var(--card2); }
+.pr-rname { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40%; }
+.pr-row .pr-ipa { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pr-rbtns { display: flex; align-items: center; gap: 2px; }
+.pr-rbtns .pr-accent { gap: 0; }
+.pr-rbtns .pr-flag { display: none; }

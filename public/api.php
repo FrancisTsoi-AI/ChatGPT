@@ -65,12 +65,35 @@ try {
     }
 
     // Upload bodies bigger than post_max_size arrive empty; say so instead of a vague error.
-    if (($route === 'upload' || $route === 'upload-chunk') && $method === 'POST' && !$_POST && !$_FILES
+    if (in_array($route, ['upload', 'upload-chunk', 'gadgets/upload'], true) && $method === 'POST' && !$_POST && !$_FILES
         && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
         throw new HttpError(413, 'Upload is larger than the server allows (post_max_size)');
     }
 
-    // a gadget's own server actions: g/<type>/<action>  (private/gadgets/<type>.php)
+    // ---- the Gadgets page: install / update from a zip, switch off / on, delete, download ----
+    if ($route === 'gadgets' && $method === 'GET') {
+        hb_json(hb_gadget_admin_list());
+    }
+    if ($route === 'gadgets/upload' && $method === 'POST') {
+        hb_json(hb_gadget_upload());
+    }
+    if ($route === 'gadgets/install' && $method === 'POST') {
+        hb_json(hb_gadget_install(hb_input()));
+    }
+    if ($route === 'gadgets/catalog' && $method === 'POST') {
+        hb_json(hb_gadget_from_catalog(hb_input()));
+    }
+    if ($route === 'gadgets/switch' && $method === 'POST') {
+        hb_json(hb_gadget_switch(hb_input()));
+    }
+    if ($route === 'gadgets/delete' && $method === 'POST') {
+        hb_json(hb_gadget_delete(hb_input()));
+    }
+    if ($route === 'gadgets/export' && $method === 'GET') {
+        hb_gadget_export((string) ($_GET['type'] ?? ''));
+    }
+
+    // a gadget's own server actions: g/<type>/<action>  (homebase-private/gadgets/<type>/server.php)
     if (preg_match('#^g/([a-z][a-z0-9_]*)/([a-z][a-z0-9_]*)$#', $route, $m)) {
         hb_json(hb_gadget_action($m[1], $m[2], null));
     }

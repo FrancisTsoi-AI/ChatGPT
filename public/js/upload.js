@@ -126,6 +126,8 @@
     const first = S.tilesOf(HB.board.scenarioId).find((t) => takes(t, 'any'));
     return first ? { id: S.contentTile(first).id, display: first } : null;
   }
+  /** The gadget a drop on empty space creates (the Files tile, or any installed gadget that takes any file). */
+  const newTileType = () => (HB.gadgets.has('files') ? 'files' : HB.gadgets.types().find((t) => HB.gadgets.meta(t).uploads === 'any'));
   const isAudioFile = (f) => /^audio\//.test(f.type) || /\.(mp3|mpga|m4a|aac|wav|ogg|oga|opus|flac|weba)$/i.test(f.name);
 
   async function walk(entry, out, dir) {
@@ -157,12 +159,15 @@
     window.addEventListener('dragleave', (e) => { if (!hasFiles(e)) return; depth--; if (depth <= 0) clear(); });
     window.addEventListener('dragover', (e) => {
       if (!hasFiles(e)) return;
+      if (e.target.closest && e.target.closest('[data-own-drop]')) { overlay.hidden = true; return; } // e.g. the Gadgets page's zip box
+      overlay.hidden = false;
       e.preventDefault();
       e.dataTransfer.dropEffect = 'copy';
       const t = targetFor(e.clientX, e.clientY);
       const el = t ? document.querySelector('.tile[data-tile="' + t.display.id + '"]') : null;
       if (el !== hot) { if (hot) hot.classList.remove('drop-target'); hot = el; if (hot) hot.classList.add('drop-target'); }
-      label.textContent = t ? ' → ' + (t.display.title || HB.typeInfo[t.display.type].label) : ' → a new Files tile';
+      const nt = newTileType();
+      label.textContent = t ? ' → ' + (t.display.title || HB.typeInfo[t.display.type].label) : nt ? ' → a new ' + HB.typeInfo[nt].label + ' tile' : ' (no gadget that takes files is installed)';
     });
     window.addEventListener('drop', async (e) => {
       if (!hasFiles(e)) return;
@@ -179,7 +184,9 @@
       const music = S.tilesOf(HB.board.scenarioId).find((t) => takes(t, 'audio'));
       if (!(target && target.under) && music && list.every(isAudioFile)) id = S.contentTile(music).id;
       if (!id) {
-        const row = await HB.board.addTile('files');
+        const nt = newTileType();
+        if (!nt) { HB.ui.toast('No gadget here takes files. Install the Files gadget in ⋯ → Gadgets.', { type: 'error' }); return; }
+        const row = await HB.board.addTile(nt);
         if (!row) return;
         id = row.id;
       }

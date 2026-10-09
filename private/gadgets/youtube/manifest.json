@@ -1,0 +1,13 @@
+{
+  "type": "youtube",
+  "version": "1.0.0",
+  "label": "YouTube playlist",
+  "icon": "▶️",
+  "hint": "Your own list of videos, played in order",
+  "author": "Home Base",
+  "group": "Files & media",
+  "order": 25,
+  "size": {"w": 5, "h": 7},
+  "entryKinds": ["video"],
+  "searchKinds": ["video"]
+}

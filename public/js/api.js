@@ -36,7 +36,7 @@
     search: (q) => call('search', { query: { q } }),
     /** URL of a GET route, for places that load it themselves (an iframe, an <audio>). */
     url: (route, query) => 'api.php?r=' + route + (query ? '&' + new URLSearchParams(query) : '') + (HB.shareSlug ? '&share=' + encodeURIComponent(HB.shareSlug) : ''),
-    /** A gadget's own server action: private/gadgets/<type>.php → action(…). */
+    /** A gadget's own server action: gadgets/<type>/server.php → action(…). */
     gadget: (type, action, query, opts) => call('g/' + type + '/' + action, Object.assign({}, opts || {}, { query: query || {} })),
     logout: () => call('auth/logout', { method: 'POST' }),
     logoutAll: (keepThis) => call('auth/logout-all', { method: 'POST', body: { keep_this: !!keepThis } }),

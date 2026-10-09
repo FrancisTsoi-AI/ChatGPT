@@ -25,6 +25,10 @@
         if (r.type === 'links' && r.url && !alt) { const u = HB.normUrl(r.url); if (u) { window.open(u, '_blank', 'noopener'); return; } }
         if (r.type === 'files' && !alt) { const f = S.get('files', r.id); if (f) HB.preview(f); }
         setTimeout(() => HB.board.flash(r.tile_id), 120);
+        if (r.type === 'entries') { // a gadget can jump to the very row (e.g. a Writer folder opens that page)
+          const tile = S.get('tiles', r.tile_id), g = tile && HB.gadgets.instance(tile);
+          if (g && g.openEntry) setTimeout(() => g.openEntry(r.id), 160);
+        }
       };
       const draw = () => {
         list.replaceChildren();

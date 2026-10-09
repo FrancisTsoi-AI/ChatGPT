@@ -18,7 +18,7 @@ function hb_spec(): array
         'tiles' => [
             'parent' => ['scenario_id', 'scenarios'],
             'cols' => [
-                'scenario_id' => 'int', 'type' => 'enum:' . implode(',', hb_tile_types()),
+                'scenario_id' => 'int', 'type' => 'enum:' . implode(',', hb_tile_types() ?: ['none']),
                 'x' => 'int', 'y' => 'int', 'width' => 'int', 'height' => 'int',
                 'title' => 'str:120', 'colour' => 'str:20', 'settings' => 'json',
             ],
@@ -285,10 +285,14 @@ function hb_seed_if_empty(): void
         ],
     ];
     $pos = 0;
+    $installed = hb_tile_types(); // a gadget you removed is simply left out
     foreach ($layouts as $name => $tiles) {
         hb_q('INSERT INTO scenarios (name, position) VALUES (?, ?)', [$name, $pos++]);
         $sid = (int) hb_db()->lastInsertId();
         foreach ($tiles as [$type, $title, $x, $y, $w, $h, $settings]) {
+            if (!in_array($type, $installed, true)) {
+                continue;
+            }
             hb_q(
                 'INSERT INTO tiles (scenario_id, type, x, y, width, height, title, settings) VALUES (?,?,?,?,?,?,?,?)',
                 [$sid, $type, $x, $y, $w, $h, $title, $settings ? json_encode($settings) : null]
@@ -554,7 +558,13 @@ function hb_trash_list(): array
         'tasks' => fn($r) => $r['text'],
         'files' => fn($r) => $r['original_name'],
         'thoughts' => fn($r) => mb_substr($r['text'], 0, 80),
-        'entries' => fn($r) => mb_substr(trim((string) ($r['a'] ?? '')) !== '' ? (string) $r['a'] : $r['kind'], 0, 80),
+        'entries' => function ($r) {
+            $a = trim((string) ($r['a'] ?? ''));
+            if ($r['kind'] === 'page' && trim((string) $r['b']) !== '') { // Writer folder: the title
+                return mb_substr((string) $r['b'], 0, 80);
+            }
+            return $a === '' ? (string) $r['kind'] : (str_starts_with($a, '<') ? hb_clean_text($a, 80) : mb_substr($a, 0, 80));
+        },
     ];
     foreach ($leaf as $t => $label) {
         $rows = hb_q("SELECT x.*, t.title ttitle, t.type ttype, s.name sname FROM `$t` x
@@ -593,10 +603,14 @@ function hb_search(string $q): array
         WHERE x.deleted_at IS NULL AND t.deleted_at IS NULL AND s.deleted_at IS NULL AND ";
     $kinds = hb_search_kinds(); // from the gadget manifests ("searchKinds")
     if ($kinds) {
-        $run('entries', $base('entries', 'x.a, x.kind') . 'x.kind IN (' . implode(',', array_fill(0, count($kinds), '?')) . ') AND (x.a LIKE ? OR x.b LIKE ? OR x.tags LIKE ?) ORDER BY x.id DESC LIMIT 20',
+        $run('entries', $base('entries', 'x.a, x.b, x.kind') . 'x.kind IN (' . implode(',', array_fill(0, count($kinds), '?')) . ') AND (x.a LIKE ? OR x.b LIKE ? OR x.tags LIKE ?) ORDER BY x.id DESC LIMIT 20',
             array_merge($kinds, [$like, $like, $like]), function ($r) {
                 $a = trim((string) $r['a']);
-                return str_starts_with($a, '<') ? hb_clean_text($a, 100) : mb_substr($a, 0, 100); // Writer documents are HTML
+                $text = str_starts_with($a, '<') ? hb_clean_text($a, 100) : mb_substr($a, 0, 100); // Writer documents are HTML
+                if ($r['kind'] === 'page' && trim((string) $r['b']) !== '') { // Writer folder page: title, then a taste of the text
+                    return mb_substr((string) $r['b'], 0, 100) . ($text !== '' ? ' — ' . mb_substr($text, 0, 60) : '');
+                }
+                return $text;
             });
     }
     $run('links', $base('links', 'x.name, x.url, x.kind') . '(x.name LIKE ? OR x.url LIKE ? OR x.tags LIKE ?) ORDER BY x.name LIMIT 20',

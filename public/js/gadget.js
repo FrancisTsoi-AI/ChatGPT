@@ -13,7 +13,8 @@
    *             static defaults()   settings for a brand-new tile of this type
    *   use       this.tile, this.ctx, this.id (content-owner id), this.settings, this.meta,
    *             this.save(patch, label), this.items(type), this.entries(kind), this.addEntry(kind, data),
-   *             this.call(action, query, opts) (the gadget's own server actions), this.redraw()
+   *             this.call(action, query, opts) (the gadget's own server actions), this.redraw(),
+   *             this.asset(path) (URL of a file in the gadget's folder, e.g. 'assets/ding.mp3')
    */
   class Gadget {
     constructor(tileId, type) { this.tileId = tileId; this.type = type; }
@@ -29,6 +30,7 @@
     addEntry(kind, data) { return HB.safeCreate('entries', Object.assign({ tile_id: this.id, kind }, data), 'add'); }
     call(action, query, opts) { return HB.api.gadget(this.type, action, query, opts); }
     redraw() { HB.board.redrawTile(this.tileId); }
+    asset(path) { return 'assets.php?g=' + this.type + '&f=' + encodeURIComponent(path) + '&v=' + (this.meta._v || ''); }
     render(body) { body.textContent = ''; }
     menu() { return []; }
     sig() { return undefined; }
@@ -44,7 +46,7 @@
 
   HB.gadgets = {
     groups: GROUPS,
-    /** Called by the asset bundle with each gadget folder's manifest.json, before its code. */
+    /** Called by the core bundle with each switched-on gadget's manifest.json; its gadget.js loads after. */
     addManifest(m) {
       metas[m.type] = m;
       HB.typeInfo[m.type] = { label: m.label, icon: m.icon, hint: m.hint || '', group: m.group || 'Other', order: m.order || 999 };
@@ -54,6 +56,8 @@
       classes[type] = Cls;
     },
     has: (type) => !!classes[type],
+    /** Gadgets whose manifest arrived but whose code did not load (a broken gadget.js). */
+    failed: () => Object.keys(metas).filter((t) => !classes[t]),
     meta: (type) => metas[type] || { type, label: type, icon: '▫', size: { w: 4, h: 4 } },
     size: (type) => (metas[type] && metas[type].size) || { w: 4, h: 4 },
     defaults: (type) => (classes[type] ? classes[type].defaults() : {}),
@@ -70,7 +74,7 @@
       if (g) this.drop(tile.id);
       const C = classes[tile.type];
       if (!C) return null;
-      g = new C(tile.id, tile.type);
+      try { g = new C(tile.id, tile.type); } catch (e) { console.error(e); return null; }
       live.set(tile.id, g);
       return g;
     },

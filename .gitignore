@@ -6,3 +6,5 @@ private/storage/tmp/*
 private/storage/cache/*
 !private/storage/*/.gitkeep
 node_modules/
+private/core.json
+private/catalog/

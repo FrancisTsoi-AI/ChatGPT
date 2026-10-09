@@ -138,7 +138,11 @@ function hb_rl_wait(string $bucket = ''): int
     return max(0, (int) hb_rl_read($bucket)['until'] - time());
 }
 
-function hb_login(string $passphrase): void
+/**
+ * Check the owner's passphrase, with the sign-in limit (5 wrong tries → 15 min pause, per address).
+ * $wrongStatus: 401 on the sign-in page; 403 when asking again inside the app (a 401 would reload it).
+ */
+function hb_check_passphrase(string $passphrase, int $wrongStatus = 401): void
 {
     $wait = hb_rl_wait();
     if ($wait > 0) {
@@ -150,12 +154,6 @@ function hb_login(string $passphrase): void
     }
     if ($passphrase !== '' && password_verify($passphrase, $hash)) {
         hb_rl_write(['fails' => 0, 'until' => 0]);
-        hb_housekeeping();
-        session_regenerate_id(true);
-        $_SESSION['authed'] = true;
-        $_SESSION['epoch'] = hb_auth_epoch();
-        $_SESSION['csrf'] = bin2hex(random_bytes(24));
-        hb_send_session_cookie(hb_session_days() * 86400);
         return;
     }
     usleep(400000); // slow down guessing
@@ -168,7 +166,24 @@ function hb_login(string $passphrase): void
         throw new HttpError(429, 'Too many wrong tries. Locked for ' . (int) hb_cfg('HB_LOGIN_PAUSE_MIN', 15) . ' minutes.', ['retry_after' => $d['until'] - time()]);
     }
     hb_rl_write($d);
-    throw new HttpError(401, 'Wrong passphrase (' . ($max - $d['fails']) . ' tries left)');
+    throw new HttpError($wrongStatus, 'Wrong passphrase (' . ($max - $d['fails']) . ' tries left)');
+}
+
+function hb_login(string $passphrase): void
+{
+    hb_check_passphrase($passphrase, 401);
+    hb_housekeeping();
+    session_regenerate_id(true);
+    $_SESSION['authed'] = true;
+    $_SESSION['epoch'] = hb_auth_epoch();
+    $_SESSION['csrf'] = bin2hex(random_bytes(24));
+    hb_send_session_cookie(hb_session_days() * 86400);
+}
+
+/** Ask a signed-in owner for the passphrase again before something powerful (installing code). */
+function hb_reauth(string $passphrase): void
+{
+    hb_check_passphrase($passphrase, 403);
 }
 
 /** Remove expired session files and stale rate-limit records (runs on each successful sign-in). */
