@@ -142,6 +142,14 @@ input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--brand); }
 .file.folder { cursor: pointer; }
 .file.folder:hover { border-color: var(--brand); }
 .file.folder .thumb { background: color-mix(in srgb, var(--brand) 14%, var(--hover)); }
+.tree-kids { margin-left: 12px; padding-left: 6px; border-left: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; }
+.tree > .tree-kids { margin-left: 4px; }
+.tree-files { min-height: 6px; display: flex; flex-direction: column; gap: 4px; }
+.tree-head { margin-top: 4px; }
+.tree-head.selected { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 9%, var(--card2)); }
+.tree-twist { background: none; border: 0; padding: 2px 4px; cursor: pointer; color: var(--muted); font-size: 14px; line-height: 1; }
+.tree-twist:hover { color: var(--text); }
+.tree-head .thumb { width: 26px; height: 26px; font-size: 15px; }
 .crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; margin-bottom: 6px; font-size: 12.5px; }
 .crumbs .sep { color: var(--muted); }
 .crumb { background: none; border: 0; padding: 3px 6px; border-radius: 6px; color: var(--brand); cursor: pointer; font: inherit; }
@@ -316,7 +324,7 @@ kbd { font: 11px ui-monospace, monospace; border: 1px solid var(--line); border-
 .share-badge { font-size: 12px; color: var(--muted); background: var(--hover); border-radius: 999px; padding: 4px 10px; white-space: nowrap; }
 .readonly .x, .readonly .add-row, .readonly .add-cd, .readonly .thought-input, .readonly .note-tools .btn,
 .readonly .timer-btns, .readonly .timer .presets, .readonly .timer .seg, .readonly .tl-top, .readonly .sk-bar,
-.readonly .stat-btns .btn, .readonly .bucket-head .tile-btn, .readonly .btn-upload, .readonly .btn-folder, .readonly .mp-controls .toggle { display: none !important; }
+.readonly .stat-btns .btn, .readonly .bucket-head .tile-btn, .readonly .btn-upload, .readonly .btn-folder, .readonly .btn-tree, .readonly .mp-controls .toggle { display: none !important; }
 .readonly .task-check, .readonly .hcell, .readonly .read-state, .readonly .md input[type=checkbox], .readonly .sk-canvas { pointer-events: none; }
 .readonly .add-row.search-form { display: flex !important; } /* visitors may still use a Search box */
 .readonly .tile-head { cursor: default; }

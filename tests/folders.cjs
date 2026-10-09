@@ -153,6 +153,48 @@ const settle = (page) => page.waitForFunction(() => HB.store.status === 'saved' 
   ok(st.files.find((f) => f.n === 'one.txt').d === photos.id && st.files.find((f) => f.n === 'two.txt').d === y24.id && st.files.find((f) => f.n === 'three.txt').d === y24.id, 'files sit in the matching folders');
   ok(st.folders.filter((f) => f.n.toLowerCase() === 'sub').length === 1 && st.files.find((f) => f.n === 'Sub.txt').d === sub.id, 'an existing folder is reused (case-insensitive), not duplicated');
 
+  section('tree view: several folders open at once');
+  await page.evaluate(() => { const t = HB.store.data.tiles.find((x) => x.type === 'files'); HB.store.update('tiles', t.id, { height: 11 }); });
+  await settle(page);
+  await tile.locator('.btn-tree').click();
+  await tile.locator('.tree').waitFor();
+  ok((await tile.locator('.tree-head').count()) >= 3, 'tree shows All files plus the folders');
+  ok((await tile.locator('.tree-files .file-name', { hasText: 'one.txt' }).count()) === 0, 'folders start collapsed');
+  const head = (n) => tile.locator('.tree-head', { hasText: n }).first();
+  await head('Photos').locator('.tree-twist').click();
+  await head('Sub').locator('.tree-twist').click();
+  ok((await tile.locator('.tree-files .file-name', { hasText: 'gamma.txt' }).count()) === 1, 'Sub is open and shows gamma.txt');
+  await head('2024').locator('.tree-twist').click();
+  ok((await tile.locator('.tree-files .file-name', { hasText: 'two.txt' }).count()) === 1 && (await tile.locator('.tree-files .file-name', { hasText: 'gamma.txt' }).count()) === 1, 'Photos › 2024 and Sub are open together');
+  await tile.evaluate((el) => el.scrollIntoView({ block: 'start' }));
+  await drag(page, tile.locator('.tree-files .file', { hasText: 'beta.txt' }), head('Sub'));
+  await settle(page);
+  st = await state();
+  ok(st.files.find((f) => f.n === 'beta.txt').d === sub.id, 'dragging a file onto a folder row moves it in the tree');
+  ok((await tile.locator('.tree-files[data-folder="' + sub.id + '"] .file-name', { hasText: 'beta.txt' }).count()) === 1, 'it now shows inside the open Sub folder');
+  await tile.evaluate((el) => el.scrollIntoView({ block: 'start' }));
+  await drag(page, tile.locator('.tree-files .file', { hasText: 'two.txt' }), tile.locator('.tree-root'));
+  await settle(page);
+  st = await state();
+  ok(st.files.find((f) => f.n === 'two.txt').d === 0, 'dragging onto "All files" moves it to the top level');
+  await page.reload();
+  await page.waitForSelector('.tile[data-type="files"] .tree');
+  ok((await tile.locator('.tree-files .file-name', { hasText: 'gamma.txt' }).count()) === 1 && (await tile.locator('.tree-files .file-name', { hasText: 'one.txt' }).count()) === 1, 'the expanded folders are remembered after a reload');
+  await head('Sub').locator('.file-name').click();
+  ok(/Uploads → Sub/.test(await tile.locator('.file-bar').textContent()), 'selecting a folder makes it the upload target');
+  await tile.locator('input[type=file]').setInputFiles([mk('delta.txt', 'delta')]);
+  await page.waitForFunction(() => HB.store.data.files.some((f) => f.original_name === 'delta.txt'));
+  await settle(page);
+  st = await state();
+  ok(st.files.find((f) => f.n === 'delta.txt').d === sub.id, 'an upload lands in the selected folder');
+  await page.evaluate(() => { const t = HB.store.data.tiles.find((x) => x.type === 'files'); HB.fileTree.collapseAll(t.id, t.id); });
+  ok((await tile.locator('.tree-files .file-name', { hasText: 'gamma.txt' }).count()) === 0, 'collapse all closes every folder');
+  await page.evaluate(() => { const t = HB.store.data.tiles.find((x) => x.type === 'files'); HB.fileTree.expandAll(t.id, t.id); });
+  ok((await tile.locator('.tree-files .file-name', { hasText: 'one.txt' }).count()) === 1 && (await tile.locator('.tree-files .file-name', { hasText: 'delta.txt' }).count()) === 1, 'expand all opens them all');
+  await tile.locator('.btn-tree').click();
+  await tile.locator('.tree').waitFor({ state: 'detached' });
+  ok((await tile.locator('.tree').count()) === 0, 'the List button goes back to one folder at a time');
+
   section('server rules');
   const bad = await page.evaluate(async () => {
     const t = HB.store.data.tiles.find((x) => x.type === 'files');
@@ -165,7 +207,7 @@ const settle = (page) => page.waitForFunction(() => HB.store.status === 'saved' 
     const b = new Uint8Array(await (await fetch('export.php?format=zip')).arrayBuffer());
     return new TextDecoder('latin1').decode(b);
   });
-  ok(/files\/Photos\/2024\/\d+-two\.txt/.test(zipNames) && /files\/Sub\/\d+-gamma\.txt/.test(zipNames) && /files\/\d+-beta\.txt/.test(zipNames), 'zip backup keeps the folder paths');
+  ok(/files\/Photos\/2024\/\d+-three\.txt/.test(zipNames) && /files\/Sub\/\d+-gamma\.txt/.test(zipNames) && /files\/\d+-two\.txt/.test(zipNames), 'zip backup keeps the folder paths');
 
   section('share page');
   const slug = 'folderstest' + Date.now().toString(36).slice(-4);

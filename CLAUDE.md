@@ -34,7 +34,7 @@ In the app, the same Gadgets & updates drop box takes the Home Base file (update
 catalog (`homebase-private/catalog/<type>.zip`: Add / Update, no file). `private/core.json` on a site = installed version + web file
 hashes (stale files removed on update).
 **Round 7** built and tested (`tests/folders.cjs`): the Files gadget has nested folders (drag a file onto a folder/breadcrumb, upload into the open folder,
-dropped desktop folders keep their tree, zip backup keeps paths). Next work = whatever the user asks.
+dropped desktop folders keep their tree, zip backup keeps paths; 🌳 Tree view = expandable hierarchy, several folders open at once, `HB.folderOpen`). Next work = whatever the user asks.
 
 ## Layout
 ```

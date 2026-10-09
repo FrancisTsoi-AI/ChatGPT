@@ -2,6 +2,7 @@
 
 A list of uploaded files with previews and downloads, organised in **folders** (nested as deep as you like). Upload with **⬆ Upload**, or drop files (or whole folders) anywhere on the page.
 **📁 New folder** makes a folder in the one you have open; click a folder to open it, use the breadcrumb (*All files › Docs › 2024*) to go back up.
+**🌳 Tree** (button in the tile, or ⋯ → *Tree view*) shows the whole hierarchy at once: click ▸ to expand a folder in place, and as many as you like stay open together (remembered in this browser). Click a folder's name to select it as the target for **⬆ Upload** and **New folder**; ⋯ has *Expand all* / *Collapse all*. Drag works across the tree. **☰ List** goes back to one folder at a time.
 Drag a file onto a folder (or onto a breadcrumb step) to move it there, or right-click it → **Move to folder ▸**. Uploads go into the folder that is open.
 A folder dropped from your computer keeps its structure (sub-folders are created, a folder with the same name is reused).
 Right-click a folder for Open, Rename, Move to folder ▸ and **Delete folder** (its files and sub-folders move up one level, nothing is lost; undo works).
@@ -21,7 +22,7 @@ Drag files to reorder them, to move them into another Files or Music tile, or on
 - Uploads go through `js/upload.js` (queue, chunking, drop anywhere).
 
 ## Data
-- **Tile settings** (`this.settings`; written with `HB.setTileSettings(ctx.id, …)`, like `this.save(patch)`): `view` – `list` or `grid` (`list`).
+- **Tile settings** (`this.settings`; written with `HB.setTileSettings(ctx.id, …)`, like `this.save(patch)`): `view` – `list` or `grid` (`list`); `tree` – true for the hierarchy view (`false`). Which folders are expanded is NOT a setting: `HB.folderOpen[contentTileId]`, saved in `localStorage` (`hb:fopen:<id>`).
 - **Folders**: `entries` rows with `kind: 'folder'`, owned by the content tile: `a` = name, `num` = parent folder id (0 = top level). Shown sorted by name. The folder that is open is kept in memory only (`HB.folderCur[contentTileId]`), so a reload starts at the top.
   A file's folder is `files.folder_id` (0 = top level). A file whose folder is gone (trashed) shows at the top level; a folder whose parent is gone shows at the top level.
   The DB column is added automatically by `hb_ensure_schema()` the first time the gateway runs after an upgrade (and is in `schema.sql` for new installs).

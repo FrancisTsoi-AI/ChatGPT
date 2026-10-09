@@ -112,28 +112,29 @@
   }
 
   /** One folder row. It is also a drop target: drag a file onto it to move the file in. */
-  function folderEl(ctx, fd, fx, go, dropOpts, body) {
+  function folderEl(ctx, fd, fx, go, dropOpts, body, tree) {
     const own = fx.folders.filter((x) => fx.parentOf(x) === fd.id).length;
     const nFiles = ctx.items('files').filter((f) => fx.folderOf(f) === fd.id).length;
     const name = h('span', { class: 'file-name', text: fd.a, title: 'Open folder' });
     const count = (nFiles ? nFiles + (nFiles === 1 ? ' file' : ' files') : '') + (own ? (nFiles ? ' · ' : '') + own + (own === 1 ? ' folder' : ' folders') : '');
     const rename = () => HB.ui.inlineEdit(name, { value: fd.a, max: 255, onSave: (v) => S.update('entries', fd.id, { a: v }, { label: 'rename folder' }), onCancel: () => HB.board.reconcile(true) });
     const el = h('div', {
-      class: 'file folder', dataset: { folder: fd.id, tile: ctx.id },
+      class: 'file folder' + (tree ? ' tree-head' + (tree.selected ? ' selected' : '') : ''), dataset: { folder: fd.id, tile: ctx.id },
       oncontextmenu: (e) => {
         e.preventDefault();
         const moves = folderTargets(fx, fx.parentOf(fd), (t) => t.id === fd.id || fx.chain(t.id).some((c) => c.id === fd.id),
           (id) => S.update('entries', fd.id, { num: id }, { label: 'move folder' }));
         HB.ui.menu(e.clientX, e.clientY, [
-          { label: 'Open', onClick: () => go(fd.id) },
+          { label: tree ? (tree.open ? 'Collapse' : 'Expand') : 'Open', onClick: () => (tree ? tree.toggle(fd.id) : go(fd.id)) },
           { label: 'Rename', onClick: rename },
           ...(moves.length ? [{ label: 'Move to folder', children: moves }] : []),
           { sep: true }, { label: 'Delete folder (files move up)', danger: true, onClick: () => removeFolder(ctx, fd, fx) },
         ]);
       },
-      onclick: (e) => { if (e.target.closest('button,input') || HB.justDragged()) return; go(fd.id); },
+      onclick: (e) => { if (e.target.closest('button,input') || HB.justDragged()) return; if (tree) tree.select(fd.id); else go(fd.id); },
     },
-    h('span', { class: 'thumb icon', text: '📁' }),
+    tree ? h('button', { type: 'button', class: 'tree-twist', text: tree.open ? '▾' : '▸', title: tree.open ? 'Collapse' : 'Expand', 'aria-label': tree.open ? 'Collapse folder' : 'Expand folder', onclick: () => tree.toggle(fd.id) }) : null,
+    h('span', { class: 'thumb icon', text: tree && tree.open ? '📂' : '📁' }),
     h('div', { class: 'file-info' }, name, h('div', { class: 'file-meta', text: count || 'Empty' })),
     h('button', { class: 'x', title: 'Delete folder (its files move up)', 'aria-label': 'Delete folder', text: '×', onclick: () => removeFolder(ctx, fd, fx) }));
     name.addEventListener('rename', rename);
@@ -141,6 +142,24 @@
     HB.sortable(body, el, dropOpts);
     return el;
   }
+
+  /** Tree view: which folders are expanded (kept per Files tile, remembered in this browser). */
+  HB.folderOpen = {};
+  const openKey = (id) => 'hb:fopen:' + id;
+  function openSet(id) {
+    if (!HB.folderOpen[id]) {
+      let v = {};
+      try { v = JSON.parse(localStorage.getItem(openKey(id)) || '{}') || {}; } catch (e) { v = {}; }
+      HB.folderOpen[id] = v;
+    }
+    return HB.folderOpen[id];
+  }
+  function saveOpen(id) { try { localStorage.setItem(openKey(id), JSON.stringify(HB.folderOpen[id] || {})); } catch (e) { /* private window: stays in memory */ } }
+  /** Menu actions: open or close every folder of a tile (id = content tile id, tileId = displayed tile). */
+  HB.fileTree = {
+    expandAll(id, tileId) { const o = openSet(id); S.entriesOf(id, 'folder').forEach((f) => { o[f.id] = true; }); saveOpen(id); HB.board.redrawTile(tileId); },
+    collapseAll(id, tileId) { HB.folderOpen[id] = {}; saveOpen(id); HB.board.redrawTile(tileId); },
+  };
 
   /** Delete a folder: what is inside (files and sub-folders) moves up one level, so nothing is lost. */
   function removeFolder(ctx, fd, fx) {
@@ -154,10 +173,46 @@
   }
 
   /** opt.folders: show the folder tree (Files tile). Without it this is the flat list the Music tile uses. */
+  /** Hierarchy view: every folder is expandable in place, several can be open at once. */
+  function treeEl(ctx, fx, all, cur, dropOpts, body) {
+    const open = openSet(ctx.id);
+    const redraw = () => HB.board.redrawTile(ctx.tile.id);
+    const act = {
+      toggle: (id) => { if (open[id]) delete open[id]; else open[id] = true; saveOpen(ctx.id); redraw(); },
+      select: (id) => { HB.folderCur[ctx.id] = id; if (!open[id]) { open[id] = true; saveOpen(ctx.id); } redraw(); },
+    };
+    const filesBox = (id) => {
+      const box = h('div', { class: 'files list tree-files', dataset: { tile: ctx.id, folder: id } });
+      all.filter((f) => fx.folderOf(f) === id).forEach((f) => box.append(fileEl(f, 'list', fx)));
+      HB.sortable(body, box, {
+        group: 'files', draggable: '[data-id]',
+        onDrop: (evt) => HB.listDrop('files', evt, (c) => ({ tile_id: Number(c.dataset.tile), folder_id: Number(c.dataset.folder || 0) })),
+        onTrash: dropOpts.onTrash,
+      });
+      return box;
+    };
+    const branch = (parent) => {
+      const wrap = h('div', { class: 'tree-kids' });
+      fx.kids(parent).forEach((fd) => {
+        const isOpen = !!open[fd.id];
+        wrap.append(folderEl(ctx, fd, fx, null, dropOpts, body, { open: isOpen, selected: fd.id === cur, toggle: act.toggle, select: act.select }));
+        if (isOpen) wrap.append(branch(fd.id));
+      });
+      wrap.append(filesBox(parent));
+      return wrap;
+    };
+    const root = h('div', { class: 'file folder tree-head tree-root' + (cur === 0 ? ' selected' : ''), dataset: { folder: 0, tile: ctx.id }, onclick: (e) => { if (!HB.justDragged()) { HB.folderCur[ctx.id] = 0; redraw(); } } },
+      h('span', { class: 'thumb icon', text: '🗂' }),
+      h('div', { class: 'file-info' }, h('span', { class: 'file-name', text: 'All files' }), h('div', { class: 'file-meta', text: all.length + (all.length === 1 ? ' file' : ' files') + (fx.folders.length ? ' · ' + fx.folders.length + (fx.folders.length === 1 ? ' folder' : ' folders') : '') })));
+    HB.sortable(body, root, dropOpts);
+    return h('div', { class: 'tree' }, root, branch(0));
+  }
+
   HB.fileTileRender = function (body, ctx, opt) {
     opt = opt || {};
     const view = ctx.settings.view === 'grid' ? 'grid' : 'list';
     const fx = opt.folders ? folderTools(ctx) : null;
+    const tree = !!(fx && ctx.settings.tree);
     let cur = fx ? HB.folderCur[ctx.id] || 0 : 0;
     if (fx && cur && !fx.byId[cur]) cur = HB.folderCur[ctx.id] = 0; // the open folder was deleted
     const go = (id) => { HB.folderCur[ctx.id] = id; HB.board.redrawTile(ctx.tile.id); };
@@ -179,8 +234,11 @@
         const name = v && String(v.name || '').trim();
         if (name) HB.createEntry(ctx, 'folder', { a: name.slice(0, 255), num: cur });
       } }) : null,
-      h('span', { class: 'muted small', text: files.length + (files.length === 1 ? ' file' : ' files') }));
+      fx ? h('button', { class: 'btn small ghost btn-tree', text: tree ? '☰ List' : '🌳 Tree', title: tree ? 'Back to one folder at a time' : 'Show all folders as a tree: open several at once',
+        onclick: () => HB.setTileSettings(ctx.id, { tree: !tree }) }) : null,
+      h('span', { class: 'muted small', text: tree ? 'Uploads → ' + (cur ? fx.pathOf(cur) : 'All files') : files.length + (files.length === 1 ? ' file' : ' files') }));
     body.append(bar);
+    if (tree) { body.append(treeEl(ctx, fx, all, cur, dropOpts, body)); return; }
     if (fx && cur) { // breadcrumb: every step is a drop target too
       const crumb = (id, label, last) => {
         const c = h('button', { type: 'button', class: 'crumb' + (last ? ' here' : ''), text: label, dataset: { folder: id, tile: ctx.id }, disabled: last, onclick: () => { if (!HB.justDragged()) go(id); } });

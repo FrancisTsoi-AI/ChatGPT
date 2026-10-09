@@ -17,7 +17,7 @@ declare(strict_types=1);
  * gadget cannot stop the others (or the app) from loading.
  */
 
-const HB_VERSION = '5.1.0';
+const HB_VERSION = '5.2.0';
 const HB_GADGET_GROUPS = ['Everyday', 'Writing', 'Study', 'Focus', 'Web', 'Files & media'];
 const HB_UPLOAD_RULES = ['any', 'audio', 'png', 'image'];
 const HB_GADGET_TYPE_RE = '/^[a-z][a-z0-9_]{1,19}$/';
