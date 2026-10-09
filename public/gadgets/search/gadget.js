@@ -6,15 +6,26 @@
   const DEFAULTS = [
     { id: 'scholar', name: 'Google Scholar', url: 'https://scholar.google.com/scholar?q={q}' },
     { id: 'google', name: 'Google', url: 'https://www.google.com/search?q={q}' },
-    { id: 'hkmu', name: 'HKMU Library', url: 'https://www.hkmu.edu.hk/lib/' },
-    { id: 'lancaster', name: 'Lancaster Library', url: 'https://onesearch.lancaster-university.uk/' },
-    { id: 'hku', name: 'HKU Libraries', url: 'https://lib.hku.hk/' },
+    { id: 'hkmu', name: 'HKMU Library', url: 'https://hkmu.primo.exlibrisgroup.com/discovery/search?query=any,contains,{q}&tab=Everything&search_scope=MyInst_and_CI&lang=en_US&vid=852HKMU_INST:hkmu&offset=0' },
+    { id: 'lancaster', name: 'Lancaster Library', url: 'https://lancaster.primo.exlibrisgroup.com/discovery/search?vid=44LAN_INST:LUL_VU1&query=any,contains,{q}&tab=Everything&search_scope=MyInst_and_CI&offset=0' },
+    { id: 'hku', name: 'HKU Libraries', url: 'https://julac-hku.primo.exlibrisgroup.com/discovery/search?vl(freeText0)={q}&search_scope=MyInst_and_CI&mode=Basic&vid=852JULAC_HKU:HKU&displayMode=full&bulkSize=20&highlight=true&dum=true&query=any,contains,{q}&displayField=all&tab=Everything' },
+    { id: 'hkpl', name: 'HKPL', url: 'https://webcat.hkpl.gov.hk/search/query?term_1={q}&theme=WEB&locale=en' },
     { id: 'books', name: 'Google Books', url: 'https://www.google.com/search?tbm=bks&q={q}' },
     { id: 'wiki', name: 'Wikipedia', url: 'https://en.wikipedia.org/w/index.php?search={q}' },
     { id: 'youtube', name: 'YouTube', url: 'https://www.youtube.com/results?search_query={q}' },
   ];
+  /** The sites the "Search all" button opens together (settings.all overrides this list). */
+  const ALL_DEFAULT = ['hkmu', 'lancaster', 'hku', 'hkpl', 'google'];
   const needsSetup = (e) => !e.url.includes('{q}');
-  const enginesOf = (st) => (Array.isArray(st.engines) && st.engines.length ? st.engines : DEFAULTS);
+  /** Saved lists keep working; a built-in site still sitting on its old home-page placeholder gets the real pattern. */
+  const enginesOf = (st) => {
+    if (!Array.isArray(st.engines) || !st.engines.length) return DEFAULTS;
+    return st.engines.map((e) => {
+      const d = needsSetup(e) && DEFAULTS.find((x) => x.id === e.id);
+      return d && !needsSetup(d) ? d : e;
+    });
+  };
+  const allIds = (st) => (Array.isArray(st.all) ? st.all : ALL_DEFAULT);
 
   /** Turn a pasted results address into a template by replacing the sample search word with {q}. */
   function learn(url, term) {
@@ -49,7 +60,14 @@
     }
   }
 
-  function open(url, q) { window.open(url.split('{q}').join(encodeURIComponent(q)), '_blank', 'noopener'); }
+  const fill = (url, q) => url.split('{q}').join(encodeURIComponent(q));
+  function open(url, q) { window.open(fill(url, q), '_blank', 'noopener'); }
+  /** One tab per site in the "Search all" group, through the toolbox's pop-up-aware opener. */
+  function openGroup(sites, q) {
+    const links = sites.map((e) => ({ url: fill(e.url, q) }));
+    if (HB.openLinks) { HB.openLinks(links); return; }
+    links.forEach((l) => window.open(l.url, '_blank', 'noopener'));
+  }
 
   HB.gadgets.define('search', class extends HB.Gadget {
     static defaults() { return { sel: 'scholar' }; }
@@ -60,6 +78,13 @@
       if (!engines.length) { body.append(h('div', { class: 'empty small', text: 'No search sites yet.' })); return; }
       const sel = engines.find((e) => e.id === st.sel) || engines[0];
       const input = h('input', { type: 'text', class: 'search-q', placeholder: 'Search ' + sel.name + '…', dataset: { key: 'q' }, autocomplete: 'off' });
+      const ids = allIds(ctx.settings);
+      const group = engines.filter((e) => ids.includes(e.id) && !needsSetup(e));
+      const goAll = () => {
+        const q = input.value.trim();
+        if (!q) { input.focus(); return; }
+        openGroup(group, q);
+      };
       const go = () => {
         const q = input.value.trim();
         if (needsSetup(sel)) { setup(ctx, engines, sel); return; }
@@ -77,14 +102,18 @@
         oncontextmenu: (ev) => {
           if (this.readOnly) return;
           ev.preventDefault();
+          const inAll = ids.includes(e.id);
           HB.ui.menu(ev.clientX, ev.clientY, [
+            { label: inAll ? 'Leave out of “Search all”' : 'Include in “Search all”', onClick: () => HB.setTileSettings(ctx.id, { all: inAll ? ids.filter((x) => x !== e.id) : ids.concat(e.id), engines }, 'search all') },
             { label: 'Set up / re-learn this search…', onClick: () => setup(ctx, engines, e) },
             { label: 'Open its home page', onClick: () => { try { window.open(new URL(e.url).origin, '_blank', 'noopener'); } catch (x) { /* ignore */ } } },
           ]);
         },
       })));
       body.append(h('form', { class: 'add-row search-form', onsubmit: (e) => { e.preventDefault(); go(); } }, input,
-        h('button', { class: 'btn small primary', type: 'submit', text: needsSetup(sel) ? 'Set up…' : 'Search' })), chips);
+        h('button', { class: 'btn small primary', type: 'submit', text: needsSetup(sel) ? 'Set up…' : 'Search' }),
+        group.length > 1 ? h('button', { class: 'btn small search-all', type: 'button', text: 'Search all ' + group.length + ' ↗',
+          title: 'Open the words in a new tab for each of: ' + group.map((e) => e.name).join(', '), onclick: goAll }) : null), chips);
       if (needsSetup(sel)) body.append(h('p', { class: 'muted small', text: 'This site needs a one-time setup so Home Base can search it directly. Press “Set up…”.' }));
     }
     menu(tile, ctx) {
@@ -102,11 +131,13 @@
           const [name, ...rest] = line.split('|');
           const url = rest.join('|').trim();
           if (!name.trim() || !/^https?:\/\//i.test(url)) return;
-          out.push({ id: 's' + i + Math.random().toString(36).slice(2, 5), name: name.trim().slice(0, 40), url });
+          const nm = name.trim().slice(0, 40);
+          const old = engines.find((e) => e.name === nm); // keep the id so "Search all" membership survives an edit
+          out.push({ id: old ? old.id : 's' + i + Math.random().toString(36).slice(2, 5), name: nm, url });
         });
         if (!out.length) { HB.ui.toast('No valid lines (use  Name | https://…)', { type: 'error' }); return; }
         HB.setTileSettings(ctx.id, { engines: out, sel: out[0].id }, 'search sites');
-      } }, { label: 'Restore default sites', onClick: () => HB.setTileSettings(ctx.id, { engines: DEFAULTS, sel: 'scholar' }, 'search sites') }];
+      } }, { label: 'Restore default sites', onClick: () => HB.setTileSettings(ctx.id, { engines: DEFAULTS, sel: 'scholar', all: ALL_DEFAULT }, 'search sites') }];
     }
   });
 })();

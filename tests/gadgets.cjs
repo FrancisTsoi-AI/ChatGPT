@@ -375,11 +375,37 @@ async function drag(page, from, to, opt = {}) {
   await T(sb).locator('.search-q').press('Enter');
   ok((await page.evaluate(() => window.__opened[0])) === 'https://scholar.google.com/scholar?q=deep%20learning', 'Enter searches Google Scholar with the words encoded');
   const names = await T(sb).locator('.engine').allTextContents();
-  ok(['HKMU', 'Lancaster', 'HKU'].every((n) => names.some((x) => x.includes(n))), 'HKMU, Lancaster and HKU libraries are in the list (' + names.length + ' sites)');
+  ok(['HKMU', 'Lancaster', 'HKU', 'HKPL'].every((n) => names.some((x) => x.includes(n))), 'HKMU, Lancaster, HKU and HKPL libraries are in the list (' + names.length + ' sites)');
+  // the library sites now search directly, with the search words in every place the catalogue wants them
+  await T(sb).locator('.engine', { hasText: 'HKMU' }).click();
+  await T(sb).locator('.search-q').fill('The Complete Book of Zen');
+  await T(sb).locator('.search-q').press('Enter');
+  ok((await page.evaluate(() => window.__opened[1])) === 'https://hkmu.primo.exlibrisgroup.com/discovery/search?query=any,contains,The%20Complete%20Book%20of%20Zen&tab=Everything&search_scope=MyInst_and_CI&lang=en_US&vid=852HKMU_INST:hkmu&offset=0', 'HKMU searches its Primo catalogue directly');
+  await T(sb).locator('.engine', { hasText: 'HKU' }).click();
+  await T(sb).locator('.search-q').press('Enter');
+  const hku = await page.evaluate(() => window.__opened[2]);
+  ok(hku.startsWith('https://julac-hku.primo.exlibrisgroup.com/') && hku.split('The%20Complete%20Book%20of%20Zen').length === 3, 'HKU puts the words in both places it needs them');
+  // "Search all": HKMU, Lancaster, HKU, HKPL and Google open together
+  await page.evaluate(() => { window.__opened = []; });
+  await T(sb).locator('.search-all').click();
+  const all = await page.evaluate(() => window.__opened);
+  ok(all.length === 5 && all.some((u) => u.startsWith('https://lancaster.primo.')) && all.some((u) => u.startsWith('https://webcat.hkpl.gov.hk/search/query?term_1=The%20Complete%20Book%20of%20Zen')) && all.some((u) => u.startsWith('https://www.google.com/search?q=The%20Complete')), 'Search all opens the 4 libraries and Google (' + all.length + ' tabs)');
+  // a site can be left out of the group
+  await T(sb).locator('.engine', { hasText: 'HKPL' }).click({ button: 'right' });
+  await page.locator('.ctx-menu, .menu', { hasText: 'Leave out of' }).first().getByText('Leave out of').click();
+  await settle();
+  await page.evaluate(() => { window.__opened = []; });
+  await T(sb).locator('.search-all').click();
+  ok((await page.evaluate(() => window.__opened.length)) === 4, 'a site left out of Search all is skipped');
+  // a site without a pattern still asks for one-time setup
+  await menu(sb, 'Edit search sites…');
+  await page.locator('.modal textarea').fill('HKMU Library | https://hkmu.example.edu/lib/\nGoogle | https://www.google.com/search?q={q}');
+  await page.locator('.modal .btn.primary').click();
+  await settle();
   await T(sb).locator('.engine', { hasText: 'HKMU' }).click();
   await T(sb).locator('button[type=submit]').click();
   await page.waitForSelector('.modal');
-  ok(/Set up/.test(await page.textContent('.modal-head')), 'a library without a known pattern asks for one-time setup');
+  ok(/Set up/.test(await page.textContent('.modal-head')), 'a site without a known pattern asks for one-time setup');
   await field('2 · Address of the results page').fill('https://hkmu.example.edu/discovery/search?query=any,contains,nonsense&vid=VID&tab=all');
   await page.locator('.modal .btn.primary').click();
   await page.waitForSelector('.toast.error');
@@ -388,11 +414,12 @@ async function drag(page, from, to, opt = {}) {
   await page.locator('.modal .btn.primary').click();
   await page.waitForSelector('.modal', { state: 'detached' });
   await settle();
-  const eng = await page.evaluate((i) => HB.store.get('tiles', i).settings.engines.find((e) => e.id === 'hkmu').url, sb);
+  const eng = await page.evaluate((i) => HB.store.get('tiles', i).settings.engines.find((e) => e.name === 'HKMU Library').url, sb);
   ok(eng === 'https://hkmu.example.edu/discovery/search?query=any,contains,{q}&vid=VID&tab=all', 'the results address is turned into a reusable pattern with {q}');
+  await page.evaluate(() => { window.__opened = []; });
   await T(sb).locator('.search-q').fill('machine learning');
   await T(sb).locator('.search-q').press('Enter');
-  ok((await page.evaluate(() => window.__opened[1])) === 'https://hkmu.example.edu/discovery/search?query=any,contains,machine%20learning&vid=VID&tab=all', 'the learned library search now works directly');
+  ok((await page.evaluate(() => window.__opened[0])) === 'https://hkmu.example.edu/discovery/search?query=any,contains,machine%20learning&vid=VID&tab=all', 'the learned library search now works directly');
   ok(await page.evaluate(() => HB.searchLearn('https://x/s?q=a+b&z=1', 'a b')) === 'https://x/s?q={q}&z=1', 'the pattern learner also handles + encoded spaces');
   await menu(sb, 'Edit search sites…');
   await page.locator('.modal textarea').fill('Mine | https://mine.example/?s={q}\nBroken line without address');
