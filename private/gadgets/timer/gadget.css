@@ -1,0 +1,6 @@
+/* timer gadget */
+.timer { height: 100%; container-type: size; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center; }
+.timer-time { font-size: clamp(1.6rem, 20cqw, 46cqh); font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.05; }
+.timer-time.over { color: var(--danger); animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: .35; } }
+.timer-btns { display: flex; gap: 8px; margin-top: 4px; } .presets { justify-content: center; margin-top: 4px; }

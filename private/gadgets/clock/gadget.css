@@ -1,0 +1,4 @@
+/* clock gadget */
+.clock { height: 100%; container-type: size; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+.clock-time { font-size: clamp(1.4rem, 26cqw, 60cqh); font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.02em; line-height: 1.05; }
+.clock-date { color: var(--muted); font-size: clamp(.7rem, 6.5cqw, 1.1rem); margin-top: 4px; }

@@ -1,0 +1,15 @@
+/* todo gadget */
+.buckets { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; align-items: start; }
+.bucket { background: var(--card2); border: 1px solid var(--line); border-radius: 11px; padding: 6px 7px 8px; min-width: 0; }
+.bucket[data-bucket="urgent"] { border-top: 3px solid #ef4444; } .bucket[data-bucket="later"] { border-top: 3px solid #3b82f6; }
+.bucket[data-bucket="brainoff"] { border-top: 3px solid #14b8a6; } .bucket[data-bucket="none"] { border-top: 3px solid var(--muted); }
+.bucket-head { display: flex; align-items: center; gap: 6px; padding: 2px 3px 6px; }
+.bucket-name { font-weight: 650; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.count { font-size: 11px; background: var(--hover); color: var(--muted); border-radius: 999px; padding: 0 7px; }
+.count:empty { display: none; }
+.tasks { display: flex; flex-direction: column; gap: 3px; min-height: 34px; padding-bottom: 2px; }
+.task { display: flex; align-items: flex-start; gap: 7px; padding: 5px 6px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; flex-wrap: wrap; }
+.task-check { margin-top: 2px; flex: none; }
+.task-text { flex: 1; min-width: 60px; cursor: text; word-break: break-word; }
+.task.done .task-text { text-decoration: line-through; color: var(--muted); }
+.task .inline-edit { flex: 1; }

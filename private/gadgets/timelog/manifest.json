@@ -1,0 +1,12 @@
+{
+  "type": "timelog",
+  "version": "1.0.0",
+  "label": "Time log",
+  "icon": "🗓",
+  "hint": "Track time per project",
+  "author": "Home Base",
+  "group": "Focus",
+  "order": 110,
+  "size": {"w": 4, "h": 6},
+  "entryKinds": ["time"]
+}

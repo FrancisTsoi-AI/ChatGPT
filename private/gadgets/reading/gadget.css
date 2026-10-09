@@ -1,0 +1,8 @@
+/* reading gadget */
+.reads { display: flex; flex-direction: column; gap: 5px; min-height: 30px; }
+.read { display: flex; gap: 8px; align-items: flex-start; background: var(--card2); border: 1px solid var(--line); border-radius: 9px; padding: 6px 8px; }
+.read-state { border: 0; background: transparent; font-size: 18px; line-height: 1; color: var(--brand); padding: 1px 2px; }
+.read.st-read .read-title, .read.st-read .read-state { color: var(--muted); } .read.st-read .read-title { text-decoration: line-through; }
+.read-main { flex: 1; min-width: 0; } .read-title { font-weight: 600; color: var(--text); text-decoration: none; word-break: break-word; }
+a.read-title:hover { color: var(--brand); } .read-note { color: var(--muted); }
+.read:hover .x { opacity: 1; }

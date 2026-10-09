@@ -1,0 +1,7 @@
+/* habits gadget */
+.habit-grid { display: grid; gap: 4px 3px; align-items: center; }
+.hh { text-align: center; font-size: 11px; color: var(--muted); } .hh.today { color: var(--brand); font-weight: 700; }
+.habit-name { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-left: 3px solid var(--accent, transparent); padding-left: 6px; }
+.hcell { aspect-ratio: 1; max-height: 34px; border: 1px solid var(--line); background: var(--card2); border-radius: 8px; color: #fff; font-weight: 700; padding: 0; }
+.hcell:hover { border-color: var(--brand); } .hcell.on { background: var(--accent, var(--brand)); border-color: transparent; } .hcell.future { opacity: .35; }
+.hstreak { text-align: center; color: var(--muted); font-weight: 700; } .hstreak.on { color: var(--warn); }

@@ -1,0 +1,7 @@
+/* timelog gadget */
+.tl-top { display: flex; gap: 6px; } .tl-clock { font: 700 26px ui-monospace, monospace; text-align: center; margin: 6px 0 2px; font-variant-numeric: tabular-nums; }
+.tl-sums { display: flex; justify-content: center; gap: 18px; margin-bottom: 8px; } .tl-sums b { font-size: 17px; }
+.tl-bars { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; } .tl-bar-top { display: flex; justify-content: space-between; gap: 8px; }
+.tl-bar-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 550; }
+.tl-recent { display: flex; flex-direction: column; gap: 3px; } .tl-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.tl-row-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .tl-row:hover .x { opacity: 1; }

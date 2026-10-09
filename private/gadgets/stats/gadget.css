@@ -1,0 +1,8 @@
+/* stats gadget */
+.stats { display: flex; flex-direction: column; gap: 8px; }
+.stat { background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 7px 9px; }
+.stat-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.stat-name { font-weight: 600; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stat-val { white-space: nowrap; color: var(--muted); font-size: 12px; } .stat-val b { color: var(--text); font-size: 16px; }
+.stat.done .bar > i { background: var(--ok); }
+.stat-btns { display: flex; gap: 6px; align-items: center; }

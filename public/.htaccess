@@ -1,0 +1,35 @@
+# Home Base — Apache settings for the public folder (shared hosting).
+DirectoryIndex index.php
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  # HTTPS only (also honours a proxy/CDN that terminates TLS).
+  RewriteCond %{HTTPS} off
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  # Share links: https://task.francistsoi.com/<name>  →  share.php?s=<name>  (only names that are not real files)
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^([a-z0-9][a-z0-9-]{2,39})$ share.php?s=$1 [L,QSA]
+</IfModule>
+
+# Never serve hidden files or leftover source files.
+<FilesMatch "^\.|\.(env|sql|md|log|bak|ini)$">
+  Require all denied
+</FilesMatch>
+<FilesMatch "^_">
+  Require all denied
+</FilesMatch>
+
+# Static files: let the browser cache them (the app's own JS/CSS come from assets.php?v=<version>, which changes with every upload).
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType text/javascript "access plus 1 year"
+</IfModule>
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/css application/javascript text/javascript application/json
+</IfModule>

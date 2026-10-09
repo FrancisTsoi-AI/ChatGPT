@@ -1,0 +1,3 @@
+# Safety net: the private folder should live outside the web root. If it ever ends up
+# inside it, refuse all web access.
+Require all denied

@@ -1,0 +1,24 @@
+/* flashcards gadget */
+.fc { text-align: center; display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+.fc-counts { display: flex; justify-content: space-around; } .fc-n b { display: block; font-size: 24px; } .fc-n small { color: var(--muted); }
+.fc-n.due b { color: var(--danger); } .fc-n.new b { color: var(--brand); }
+.fc-btns { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+.card-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; max-height: 55vh; overflow: auto; }
+.card-row { display: flex; gap: 8px; align-items: center; background: var(--card2); border: 1px solid var(--line); border-radius: 9px; padding: 6px 8px; }
+.card-row-text { flex: 1; min-width: 0; } .card-front { font-weight: 600; } .card-back { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.study-back { position: fixed; inset: 0; z-index: 130; background: color-mix(in srgb, var(--bg) 94%, #000); display: grid; place-items: center; padding: 14px; }
+.study { width: min(720px, 100%); max-height: 100%; display: flex; flex-direction: column; gap: 12px; }
+.study-head { display: flex; align-items: center; gap: 12px; } .study-prog { flex: 1; height: 6px; border-radius: 9px; background: var(--hover); overflow: hidden; }
+.study-prog > i { display: block; height: 100%; background: var(--brand); transition: width .2s; }
+.study-card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); padding: 28px 30px; min-height: 240px; overflow: auto; font-size: 20px; cursor: pointer; }
+.study-answer { color: var(--text); } .study-card hr { border: 0; border-top: 1px dashed var(--line); margin: 18px 0; }
+.study-hint { margin-top: 28px; font-size: 13px; text-align: center; }
+.study-btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; } .study-btns .btn.big { grid-column: 1 / -1; }
+.grade { border: 1px solid var(--line); background: var(--card); border-radius: 12px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.grade small { color: var(--muted); } .grade:hover { border-color: var(--brand); }
+.grade.g1 b { color: #dc2626; } .grade.g2 b { color: #d97706; } .grade.g3 b { color: #16a34a; } .grade.g4 b { color: #2563eb; }
+.study-done { text-align: center; padding: 40px 10px; display: flex; flex-direction: column; gap: 10px; align-items: center; } .study-big { font-size: 28px; font-weight: 700; }
+.study-tags { text-align: center; }
+.fc-ro { display: flex; flex-direction: column; gap: 6px; text-align: left; }
+.fc-ro-card { background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; cursor: pointer; }
+.fc-ro-back { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line); color: var(--muted); }
