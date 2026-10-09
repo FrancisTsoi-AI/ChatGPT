@@ -81,9 +81,11 @@ CREATE TABLE IF NOT EXISTS tasks (
 
 -- Uploaded file records. The bytes live in the private storage folder under
 -- `stored_name`; this table only holds the record. Also used for music tracks.
+-- folder_id: 0 = top level, otherwise the id of an entries row (kind folder) of the same tile. Keep semicolons out of comments, the installer splits on them.
 CREATE TABLE IF NOT EXISTS files (
   id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
   tile_id       INT UNSIGNED NOT NULL,
+  folder_id     INT UNSIGNED NOT NULL DEFAULT 0,
   original_name VARCHAR(255) NOT NULL,
   stored_name   VARCHAR(80)  NOT NULL,
   size          BIGINT UNSIGNED NOT NULL DEFAULT 0,

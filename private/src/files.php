@@ -63,7 +63,7 @@ function hb_upload_target_tile(int $tileId): array
 }
 
 /** Move a finished file (already on disk at $path) into storage and insert its record. */
-function hb_store_file(string $path, string $origName, int $tileId, bool $isUploaded, int $replaceId = 0): array
+function hb_store_file(string $path, string $origName, int $tileId, bool $isUploaded, int $replaceId = 0, int $folderId = 0): array
 {
     $tile = hb_upload_target_tile($tileId);
     $name = hb_clean_name($origName);
@@ -104,8 +104,11 @@ function hb_store_file(string $path, string $origName, int $tileId, bool $isUplo
         return hb_row('files', hb_get_row('files', $replaceId));
     }
     $pos = (int) hb_q('SELECT COALESCE(MAX(position), -1) + 1 p FROM files WHERE tile_id = ?', [$tileId])->fetch()['p'];
-    hb_q('INSERT INTO files (tile_id, original_name, stored_name, size, type, position) VALUES (?,?,?,?,?,?)',
-        [$tileId, $name, $stored, $size, $mime, $pos]);
+    if ($folderId > 0 && !hb_q("SELECT 1 FROM entries WHERE id = ? AND tile_id = ? AND kind = 'folder' AND deleted_at IS NULL", [$folderId, $tileId])->fetch()) {
+        $folderId = 0; // unknown or deleted folder: the file lands at the top level
+    }
+    hb_q('INSERT INTO files (tile_id, folder_id, original_name, stored_name, size, type, position) VALUES (?,?,?,?,?,?,?)',
+        [$tileId, $folderId, $name, $stored, $size, $mime, $pos]);
     return hb_row('files', hb_get_row('files', (int) hb_db()->lastInsertId()));
 }
 
@@ -120,7 +123,7 @@ function hb_upload_error_text(int $code): string
     };
 }
 
-/** POST api.php?r=upload  — multipart: tile_id, file (or files[]). Whole files up to the PHP limit. */
+/** POST api.php?r=upload  — multipart: tile_id, folder_id (optional), file (or files[]). Whole files up to the PHP limit. */
 function hb_handle_upload(): array
 {
     $tileId = (int) ($_POST['tile_id'] ?? 0);
@@ -136,12 +139,12 @@ function hb_handle_upload(): array
         if ($err !== UPLOAD_ERR_OK) {
             throw new HttpError(400, hb_upload_error_text($err));
         }
-        $out[] = hb_store_file(((array) $f['tmp_name'])[$i], (string) $n, $tileId, true, $replace);
+        $out[] = hb_store_file(((array) $f['tmp_name'])[$i], (string) $n, $tileId, true, $replace, (int) ($_POST['folder_id'] ?? 0));
     }
     return ['files' => $out];
 }
 
-/** POST api.php?r=upload-chunk — multipart: upload_id, offset, total, name, tile_id, file(blob). */
+/** POST api.php?r=upload-chunk — multipart: upload_id, offset, total, name, tile_id, folder_id (optional), file(blob). */
 function hb_handle_chunk(): array
 {
     $uid = (string) ($_POST['upload_id'] ?? '');
@@ -186,7 +189,7 @@ function hb_handle_chunk(): array
     if ($size < $total) {
         return ['done' => false, 'received' => $size];
     }
-    return ['done' => true, 'file' => hb_store_file($part, $name, $tileId, false)];
+    return ['done' => true, 'file' => hb_store_file($part, $name, $tileId, false, 0, (int) ($_POST['folder_id'] ?? 0))];
 }
 
 // ---- download / inline view ------------------------------------------------------------------
@@ -293,10 +296,24 @@ function hb_export_zip(): void
     }
     $data = hb_export_data();
     $zip->addFromString('homebase.json', json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE));
+    // Files tiles can hold folders (entries of kind folder, a = name, num = parent); keep that tree in the zip
+    $folders = [];
+    foreach ($data['entries'] as $e) {
+        if ($e['kind'] === 'folder') {
+            $folders[(int) $e['id']] = $e;
+        }
+    }
+    $folderPath = function (int $id) use ($folders): string {
+        $parts = [];
+        for ($n = 0; $id > 0 && isset($folders[$id]) && $n < 50; $n++, $id = (int) $folders[$id]['num']) {
+            array_unshift($parts, str_replace('/', '_', hb_clean_name((string) $folders[$id]['a'])));
+        }
+        return $parts ? implode('/', $parts) . '/' : '';
+    };
     foreach ($data['files'] as $f) {
         $p = hb_storage('files') . '/' . $f['stored_name'];
         if (preg_match(HB_STORED_RE, $f['stored_name']) && is_file($p)) {
-            $zip->addFile($p, 'files/' . $f['id'] . '-' . str_replace('/', '_', hb_clean_name($f['original_name'])));
+            $zip->addFile($p, 'files/' . $folderPath((int) ($f['folder_id'] ?? 0)) . $f['id'] . '-' . str_replace('/', '_', hb_clean_name($f['original_name'])));
         }
     }
     $zip->close();

@@ -20,10 +20,22 @@
     const src = S.contentTile(tile);
     if (!src) return 'missing';
     const g = HB.gadgets.instance(tile);
-    const own = g ? g.sig(HB.tileCtx(tile)) : undefined; // a gadget may narrow what triggers a redraw
+    let own;
+    try { own = g ? g.sig(HB.tileCtx(tile)) : undefined; } catch (e) { console.error(e); } // a gadget may narrow what triggers a redraw
     if (own !== undefined) return JSON.stringify([tile.type, own]);
     return JSON.stringify([tile.type, src.settings, tile.settings && tile.settings.shared_from,
       S.itemsOf('links', src.id), S.itemsOf('tasks', src.id), S.itemsOf('files', src.id), S.itemsOf('thoughts', src.id), S.itemsOf('entries', src.id)]);
+  };
+
+  /** What a tile shows when its gadget is not there: removed, switched off, or its code failed to load. */
+  HB.gadgetMissing = function (tile) {
+    const known = HB.typeInfo[tile.type];
+    const name = known ? known.label : tile.type;
+    const text = known
+      ? 'The “' + name + '” gadget did not load (its code has an error). Update or remove it in ⋯ → Gadgets.'
+      : 'The “' + name + '” gadget is switched off or not installed. Turn it on or install it in ⋯ → Gadgets; your content is kept.';
+    return h('div', { class: 'empty gadget-missing' }, h('p', { text }),
+      HB.readOnly ? null : h('button', { class: 'btn small', type: 'button', text: 'Open Gadgets', onclick: () => HB.gadgetAdmin.open() }));
   };
 
   /** Create an entry row in the tile that owns the content. */

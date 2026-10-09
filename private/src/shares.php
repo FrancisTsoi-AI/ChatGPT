@@ -174,6 +174,9 @@ function hb_share_state(array $share): array
         if ($t === 'files') {
             $rows = array_values(array_filter($rows, fn($f) => hb_share_allows_file($share, $f)));
         }
+        if ($t === 'entries' && empty($share['include_files'])) { // folder names are part of the file listing
+            $rows = array_values(array_filter($rows, fn($e) => $e['kind'] !== 'folder'));
+        }
         $state[$t] = array_map(fn($r) => hb_row($t, $r), $rows);
     }
     return $state;

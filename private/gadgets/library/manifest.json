@@ -1,0 +1,14 @@
+{
+  "type": "library",
+  "version": "1.0.0",
+  "label": "Writer folder",
+  "icon": "🗂️",
+  "hint": "A folder of many documents, with sub-folders",
+  "author": "Home Base",
+  "group": "Writing",
+  "order": 11,
+  "size": {"w": 9, "h": 8},
+  "entryKinds": ["page"],
+  "searchKinds": ["page"],
+  "uploads": "image"
+}
