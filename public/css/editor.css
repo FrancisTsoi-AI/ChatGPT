@@ -43,7 +43,9 @@
 .wr-rich img[data-align="left"] { float: left; margin: .2em 14px .4em 0; }
 .wr-rich img[data-align="right"] { float: right; margin: .2em 0 .4em 14px; }
 .wr-rich img.is-sel { outline: 2px solid var(--brand); outline-offset: 1px; }
-.wr-rich table { border-collapse: collapse; margin: 0 0 .7em; max-width: 100%; } .wr-rich th, .wr-rich td { border: 1px solid var(--line); padding: 5px 9px; min-width: 56px; vertical-align: top; }
+.wr-rich table { border-collapse: collapse; margin: 0 0 .7em; max-width: 100%; } .wr-rich th, .wr-rich td { border: 1px solid var(--line); padding: 5px 9px; min-width: 24px; vertical-align: top; box-sizing: border-box; overflow-wrap: anywhere; }
+.wr-rich table:has(> tbody > tr > [style*="width"]) { max-width: none; } /* a table whose columns were dragged wider may scroll sideways */
+.wr-rich.wr-col-resize, .wr-rich.wr-col-resize * { cursor: col-resize; } .wr-rich.wr-row-resize, .wr-rich.wr-row-resize * { cursor: row-resize; }
 .wr-rich th { background: var(--card2); text-align: left; }
 .wr-rich a { color: var(--brand); }
 .wr-rich hr { border: 0; border-top: 2px solid var(--line); margin: 1em 0; }

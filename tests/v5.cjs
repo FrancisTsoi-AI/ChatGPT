@@ -258,7 +258,7 @@ const basic = (type, files) => zip(Object.assign({ 'manifest.json': manifest({ t
   section('download a gadget as a .zip');
   const dl = await page.evaluate(async () => { const r = await fetch('api.php?r=gadgets/export&type=writer'); return { cd: r.headers.get('content-disposition'), b64: btoa(String.fromCharCode(...new Uint8Array(await r.arrayBuffer()))) }; });
   const wnames = names(Buffer.from(dl.b64, 'base64'));
-  ok(/writer-1\.0\.0\.zip/.test(dl.cd) && ['writer/manifest.json', 'writer/gadget.js', 'writer/gadget.css', 'writer/server.php', 'writer/README.md'].every((n) => wnames.includes(n)), 'the zip holds the whole folder (code, styles, server part, notes): ready to back up, change, or install elsewhere');
+  ok(/writer-1\.1\.0\.zip/.test(dl.cd) && ['writer/manifest.json', 'writer/gadget.js', 'writer/gadget.css', 'writer/server.php', 'writer/README.md'].every((n) => wnames.includes(n)), 'the zip holds the whole folder (code, styles, server part, notes): ready to back up, change, or install elsewhere');
   const clockZip = await page.evaluate(async () => { const r = await fetch('api.php?r=gadgets/export&type=clock'); return btoa(String.fromCharCode(...new Uint8Array(await r.arrayBuffer()))); });
 
   // ===================================================================================== delete

@@ -123,7 +123,7 @@ const stop = (p) => { try { p.kill(); } catch (e) { /* gone */ } };
   await post(page, 'gadgets/delete', { type: 'stats', trash_tiles: false });
   await page.reload(); await ready(page);
   await openGadgets(page);
-  ok(/5\.2\.0/.test(await page.textContent('.ga-version')) && await page.locator('.ga-avail .ga-row[data-type="stats"]').count() === 1, 'a deleted built-in gadget is offered under "Built-in gadgets you can add"');
+  ok(/5\.3\.0/.test(await page.textContent('.ga-version')) && await page.locator('.ga-avail .ga-row[data-type="stats"]').count() === 1, 'a deleted built-in gadget is offered under "Built-in gadgets you can add"');
   await reloaded(page, () => page.locator('.ga-avail .ga-row[data-type="stats"] button', { hasText: 'Add' }).click());
   ok(await page.evaluate(() => HB.gadgets.has('stats')) && fs.existsSync(path.join(priv, 'gadgets', 'stats', 'manifest.json')), 'one click adds it back from the catalog');
   // something of yours that updates must keep: a gadget you added, a thought, the settings file
@@ -138,36 +138,36 @@ const stop = (p) => { try { p.kill(); } catch (e) { /* gone */ } };
 
   // ===================================================================================== updates
   section('update Home Base by dropping one file');
-  const p501 = path.join(SCRATCH, 'homebase-5.2.1.zip');
-  py([path.join(REPO, 'tests', 'lib', 'make-package.py'), path.join(DIST, 'homebase.zip'), p501, '--version', '5.2.1',
+  const p501 = path.join(SCRATCH, 'homebase-5.3.1.zip');
+  py([path.join(REPO, 'tests', 'lib', 'make-package.py'), path.join(DIST, 'homebase.zip'), p501, '--version', '5.3.1',
     '--append', 'web/css/app.css=\n/* v6-marker-501 */\n', '--put', 'web/v6-only.txt=temporary', '--gadget', 'clock=1.0.1']);
   await page.reload(); await ready(page);
   await openGadgets(page);
   await page.setInputFiles('.ga-drop input[type=file]', p501);
   await page.waitForSelector('.ga-confirm');
   const pv = await page.textContent('.ga-confirm');
-  ok(/Home Base 5\.2\.1/.test(pv) && /You have 5\.2\.0/.test(pv) && /Clock 1\.0\.0 → 1\.0\.1/.test(pv) && /kept/.test(pv), 'the dialog says 5.2.0 → 5.2.1, which gadgets update, and that your things are kept');
+  ok(/Home Base 5\.3\.1/.test(pv) && /You have 5\.3\.0/.test(pv) && /Clock 1\.0\.0 → 1\.0\.1/.test(pv) && /kept/.test(pv), 'the dialog says 5.3.0 → 5.3.1, which gadgets update, and that your things are kept');
   await page.fill('.ga-pass', 'wrong-passphrase');
   await page.click('.modal .btn.primary:has-text("Update Home Base")');
   await page.waitForSelector('.ga-confirm .form-err:not([hidden])');
-  ok(/Wrong passphrase/.test(await page.textContent('.ga-confirm .form-err')) && JSON.parse(fs.readFileSync(path.join(priv, 'core.json'))).version === '5.2.0', 'nothing happens without your passphrase');
+  ok(/Wrong passphrase/.test(await page.textContent('.ga-confirm .form-err')) && JSON.parse(fs.readFileSync(path.join(priv, 'core.json'))).version === '5.3.0', 'nothing happens without your passphrase');
   fs.readdirSync(path.join(priv, 'storage', 'ratelimit')).forEach((f) => fs.unlinkSync(path.join(priv, 'storage', 'ratelimit', f)));
   await page.fill('.ga-pass', PASS);
   await reloaded(page, () => page.click('.modal .btn.primary:has-text("Update Home Base")'));
   const css = await page.evaluate(async () => (await fetch(document.querySelector('link[href^="assets.php?b=css"]').href)).text());
   const clockV = JSON.parse(fs.readFileSync(path.join(priv, 'gadgets', 'clock', 'manifest.json'))).version;
-  ok(JSON.parse(fs.readFileSync(path.join(priv, 'core.json'))).version === '5.2.1' && css.includes('v6-marker-501') && fs.existsSync(path.join(www, 'v6-only.txt')) && clockV === '1.0.1',
+  ok(JSON.parse(fs.readFileSync(path.join(priv, 'core.json'))).version === '5.3.1' && css.includes('v6-marker-501') && fs.existsSync(path.join(www, 'v6-only.txt')) && clockV === '1.0.1',
     'Home Base is updated in place: new program files are live and the built-in Clock gadget is updated');
   const kept = await page.evaluate(() => ({ thought: HB.store.data.thoughts.some((t) => t.text === 'kept through updates'), mine: HB.gadgets.has('mine'), stats: HB.gadgets.has('stats') }));
   ok(kept.thought && kept.mine && kept.stats && sha(path.join(priv, '.env')) === envSha, 'your data, your settings file and the gadgets you added are untouched');
   await openGadgets(page);
-  ok(/5\.2\.1/.test(await page.textContent('.ga-version')), 'the Gadgets & updates page shows the new version');
+  ok(/5\.3\.1/.test(await page.textContent('.ga-version')), 'the Gadgets & updates page shows the new version');
   await page.keyboard.press('Escape');
 
-  const p502 = path.join(SCRATCH, 'homebase-setup-5.2.2.php');
-  py([path.join(REPO, 'tests', 'lib', 'make-package.py'), path.join(DIST, 'homebase.zip'), p502, '--version', '5.2.2', '--setup', path.join(DIST, 'homebase-setup.php')]);
+  const p502 = path.join(SCRATCH, 'homebase-setup-5.3.2.php');
+  py([path.join(REPO, 'tests', 'lib', 'make-package.py'), path.join(DIST, 'homebase.zip'), p502, '--version', '5.3.2', '--setup', path.join(DIST, 'homebase-setup.php')]);
   const u2 = await up(page, fs.readFileSync(p502), 'homebase-setup.php');
-  ok(u2.status === 200 && u2.json.preview.kind === 'core' && u2.json.preview.version === '5.2.2', 'the same homebase-setup.php file is accepted for updates too');
+  ok(u2.status === 200 && u2.json.preview.kind === 'core' && u2.json.preview.version === '5.3.2', 'the same homebase-setup.php file is accepted for updates too');
   const i2 = await post(page, 'gadgets/install', { token: u2.json.token, passphrase: PASS });
   ok(i2.status === 200 && i2.json.report.removed >= 1 && !fs.existsSync(path.join(www, 'v6-only.txt')), 'files the new version no longer has are removed');
   const older = await up(page, fs.readFileSync(path.join(DIST, 'homebase-setup.php')), 'homebase-setup.php');
@@ -186,7 +186,7 @@ const stop = (p) => { try { p.kill(); } catch (e) { /* gone */ } };
     const r = await up(page, fs.readFileSync(f), 'homebase.zip');
     ok(r.status === 400, 'refused: ' + what + ' (' + ((r.json || {}).error || r.status) + ')');
   }
-  ok(JSON.parse(fs.readFileSync(path.join(priv, 'core.json'))).version === '5.2.2' && !fs.existsSync(path.join(site, 'evil.php')), 'and nothing was changed by them');
+  ok(JSON.parse(fs.readFileSync(path.join(priv, 'core.json'))).version === '5.3.2' && !fs.existsSync(path.join(site, 'evil.php')), 'and nothing was changed by them');
 
   const dev = await newPage();
   await signIn(dev, BASE, DEV_PASS);

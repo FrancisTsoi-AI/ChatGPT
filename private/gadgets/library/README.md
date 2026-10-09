@@ -4,9 +4,11 @@ One tile that holds **many documents**: a list of pages and folders on the left 
 A page is a rich-text document (the same editor as the Writer: `HB.editor.rich`, see the Writer gadget's README.md) or a **code page** with colour highlighting.
 
 ## Using it
-- **+ New** (or the tile's ⋯ menu) adds a page, a code page or a folder. The row menu (`⋯` on a row, or right-click) has *New … here* (folders), *Rename*, *Duplicate*, *Download*, *Move to* (any folder or the top level) and *Delete*.
+- **+ New** (or the tile's ⋯ menu) adds a page, a code page or a folder. The row menu (`⋯` on a row, or right-click) has *New … here* (folders), *Rename*, *Change icon…*, *Duplicate*, *Download*, *Move to* (any folder or the top level) and *Delete*.
 - Click a page to open it; click a folder (or its arrow) to open or close it. The title is the big field above the text; the list updates as you type.
 - **Drag** a row to reorder it, drop it on a folder's list to move it in, drop it on 🗑 Trash to delete it. Open a folder first to drop into it.
+- **Icons:** every page, code page and folder can have its own emoji (row menu → *Change icon…*; empty = the default 📄 / ⌨️ / 📁). A Writer moved in here keeps its icon.
+- Tables (drag a cell edge to resize) and *Paste as plain text* (Ctrl+Shift+V or right-click) work as in the Writer.
 - **Filter…** hides everything that does not match (a folder stays if something inside matches).
 - ☰ shows or hides the list. In a narrow tile the list slides over the page.
 - Deleting a folder sends the folder and everything inside to the trash (one Ctrl+Z brings it all back).
@@ -28,7 +30,7 @@ A page is a rich-text document (the same editor as the Writer: `HB.editor.rich`,
 | `b` | title (≤ 120 characters) |
 | `num` | id of the folder it is in, `0` = top level (a row whose folder is gone shows at the top level) |
 | `position` | order among its siblings (a drop renumbers the list) |
-| `data` | `{t: 'page' \| 'code' \| 'folder', lang?, open?}`: `open` is whether a folder is expanded (saved, so every device agrees) |
+| `data` | `{t: 'page' \| 'code' \| 'folder', lang?, open?, icon?}`: `open` is whether a folder is expanded (saved, so every device agrees); `icon` is the row's own emoji (absent = the default for its kind) |
 
 Which page is open is remembered per browser (`localStorage` `hb:lib:<tile id>`), not saved to the server.
 Pictures are `files` rows of the tile, shown as `<img src="file.php?id=N">`.

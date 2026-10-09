@@ -6,6 +6,12 @@
 
   const kindOf = (r) => (r.data && r.data.t) || 'page';
   const ICON = { folder: '📁', folderOpen: '📂', page: '📄', code: '⌨️' };
+  /** The icon of a row: its own choice (data.icon) or the default for its kind (folders show open/closed). */
+  const iconOf = (r, open) => {
+    const own = r.data && typeof r.data.icon === 'string' ? r.data.icon.trim() : '';
+    const kind = kindOf(r);
+    return own || (kind === 'folder' ? (open ? ICON.folderOpen : ICON.folder) : ICON[kind] || ICON.page);
+  };
   const lsKey = (id) => 'hb:lib:' + id;
 
   /**
@@ -58,7 +64,7 @@
     // ---- redraw control ---------------------------------------------------------------------------
     sig(ctx) {
       const t = this.tree(ctx), cur = this.current(t);
-      return [t.rows.map((r) => [r.id, r.b, r.num, r.position, kindOf(r), (r.data || {}).open ? 1 : 0, (r.data || {}).lang || '']), cur ? [cur.id, cur.a] : null];
+      return [t.rows.map((r) => [r.id, r.b, r.num, r.position, kindOf(r), (r.data || {}).open ? 1 : 0, (r.data || {}).lang || '', (r.data || {}).icon || '']), cur ? [cur.id, cur.a] : null];
     }
     keep() {
       const a = document.activeElement;
@@ -176,10 +182,20 @@
       walk(0, 1);
       const items = [];
       if (isFolder) items.push(...this.addMenu(row.id).map((x) => Object.assign(x, { label: x.label + ' here' })), { sep: true });
-      items.push({ label: 'Rename', onClick: () => (isFolder ? this.rename(row, labelEl) : this.pickTitle(row)) });
+      items.push({ label: 'Rename', onClick: () => (isFolder ? this.rename(row, labelEl) : this.pickTitle(row)) }, { label: 'Change icon…', onClick: () => this.changeIcon(row) });
       if (!isFolder) items.push({ label: 'Duplicate', onClick: () => this.duplicate(row.id) }, { label: 'Download', onClick: () => this.download(row) });
       items.push({ label: 'Move to', children: targets }, { sep: true }, { label: isFolder ? 'Delete folder' : 'Delete page', danger: true, onClick: () => this.remove(row.id) });
       return items;
+    }
+    async changeIcon(row) {
+      const def = iconOf(Object.assign({}, row, { data: Object.assign({}, row.data, { icon: '' }) }), !!(row.data || {}).open);
+      const v = await HB.ui.form({ title: 'Icon for "' + (row.b || 'this item') + '"', submit: 'Set icon',
+        fields: [{ name: 'icon', label: 'Icon', type: 'emoji', value: (row.data || {}).icon || '', placeholder: def, hint: 'Leave it empty to use the default ' + def }] });
+      if (!v) return;
+      const data = Object.assign({}, row.data);
+      const icon = Array.from(v.icon).slice(0, 4).join('');
+      if (icon) data.icon = icon; else delete data.icon;
+      S.update('entries', row.id, { data }, { label: 'icon' });
     }
     rename(row, el) {
       HB.ui.inlineEdit(el, { value: row.b, max: 120, onSave: (v) => S.update('entries', row.id, { b: v }, { label: 'rename' }), onCancel: () => this.redraw() });
@@ -220,13 +236,13 @@
         const more = ro ? null : h('button', { type: 'button', class: 'lib-more', title: 'Menu', 'aria-label': 'Menu', text: '⋯', onclick: (e) => { e.stopPropagation(); HB.ui.menuAt(more, this.rowMenu(r, label)); } });
         const li = h('li', { class: 'lib-item' + (folder ? ' folder' : '') + (folder && open ? ' open' : ''), dataset: { id: r.id, kind } });
         const row = h('div', { class: 'lib-row' + (cur && cur.id === r.id ? ' active' : ''), role: 'button', tabindex: '0', title: r.b },
-          h('span', { class: 'lib-chev', text: folder ? '▸' : '' }), h('span', { class: 'lib-ico', text: folder ? (open ? ICON.folderOpen : ICON.folder) : ICON[kind] || ICON.page }), label, more);
+          h('span', { class: 'lib-chev', text: folder ? '▸' : '' }), h('span', { class: 'lib-ico', text: iconOf(r, open) }), label, more);
         const activate = async () => {
           if (HB.justDragged()) return;
           if (folder) {
             const now = !li.classList.contains('open');
             li.classList.toggle('open', now);
-            row.querySelector('.lib-ico').textContent = now ? ICON.folderOpen : ICON.folder;
+            row.querySelector('.lib-ico').textContent = iconOf(r, now);
             if (!ro) { S.update('entries', r.id, { data: Object.assign({}, r.data, { open: now }) }, { record: false }); HB.board.markRendered(this.tileId); }
             return;
           }
@@ -325,6 +341,7 @@
       } else {
         const rich = E.rich({
           value: row.a, readOnly: ro, onChange: (html) => this.saveSoon(row.id, { a: html }),
+          moreMenu: () => HB.board.tileMenu(this.tileId),
           upload: async (file, progress) => {
             const f = await HB.upload.one(file, ctx.id, progress);
             S.addFileRows([f]);

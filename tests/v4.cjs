@@ -122,6 +122,55 @@ const section = (t) => console.log('\n# ' + t);
   ok(rich === '<p style="font-size: 24px; color: #abc; font-family: Georgia, serif">x</p><span style="background-color: rgb(1,2,3)">y</span><ul class="todo"><li data-done="1">z</li></ul><img src="file.php?id=4" width="30%" data-align="left">', 'the sanitizer keeps the new formatting (size, font, to-do, picture size) and nothing else (' + rich + ')');
   ok(await page.evaluate(() => HB.editor.toText('<h1>A</h1><p>b<br>c</p><ul><li>d</li></ul>') === 'A\nb\nc\nd'), 'plain text export');
 
+  // tables resize by dragging, paste as plain text, own icon
+  section('editor: resizable tables, paste as plain text, own icon');
+  await page.evaluate(() => HB.board.toggleMax(Number(document.querySelector('.tile[data-type="writer"]').dataset.tile)));
+  await ed.click(); await page.keyboard.press('Control+End');
+  await T(wr).locator('.wr-b[title="Table"]').click();
+  await page.locator('.wr-tcell').nth(2 * 8 + 1).click(); // 3 rows x 2 columns
+  const th0 = T(wr).locator('.wr-rich th').first();
+  const cb = await th0.boundingBox();
+  await page.mouse.move(cb.x + cb.width - 1, cb.y + cb.height / 2);
+  ok(await T(wr).locator('.wr-rich.wr-col-resize').count() === 1, 'the pointer turns into a column-resize arrow on a cell edge');
+  await page.mouse.down(); await page.mouse.move(cb.x + cb.width + 60, cb.y + cb.height / 2, { steps: 5 }); await page.mouse.up();
+  const cw = (await th0.boundingBox()).width;
+  ok(Math.abs(cw - (cb.width + 60)) < 4, 'dragging a column edge widens the column (' + Math.round(cb.width) + ' → ' + Math.round(cw) + ')');
+  ok(Math.abs((await T(wr).locator('.wr-rich tr:nth-child(3) td').first().boundingBox()).width - cw) < 3, 'the cells below follow the column');
+  const tr1 = T(wr).locator('.wr-rich tr').nth(1), rb0 = await tr1.boundingBox();
+  await page.mouse.move(rb0.x + 20, rb0.y + rb0.height - 1);
+  ok(await T(wr).locator('.wr-rich.wr-row-resize').count() === 1, 'the pointer turns into a row-resize arrow on a row edge');
+  await page.mouse.down(); await page.mouse.move(rb0.x + 20, rb0.y + rb0.height + 40, { steps: 5 }); await page.mouse.up();
+  ok((await tr1.boundingBox()).height > rb0.height + 30, 'dragging a row edge makes the row taller');
+  await page.waitForFunction((id) => HB.store.entriesOf(id, 'doc').some((e) => /<th style="width: \d+px/.test(e.a) && /<tr style="height: \d+px/.test(e.a)), wr, { timeout: 6000 });
+  await settle(); await page.reload(); await th0.waitFor();
+  ok(Math.abs((await th0.boundingBox()).width - cw) < 3, 'the column width survives a reload');
+  ok(await page.evaluate(() => HB.sanitizeHtml('<table><tr><td style="width:50px;position:fixed;height:url(x)">a</td></tr></table><div style="width:10px">d</div>').replace(/<\/?(table|tbody|tr)>/g, '') === '<td style="width: 50px">a</td><div>d</div>'),
+    'the sanitizer keeps px/% width and height on table parts only');
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']).catch(() => {});
+  await page.evaluate(() => navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob(['<p><b>PLAINCHECK</b> text</p>'], { type: 'text/html' }), 'text/plain': new Blob(['PLAINCHECK text'], { type: 'text/plain' }) })]));
+  await T(wr).locator('.wr-rich').click({ button: 'right', position: { x: 300, y: 12 } });
+  ok((await page.locator('.menu-item .menu-label').allTextContents()).includes('Paste as plain text'), 'right-click in the editor offers Paste as plain text');
+  await page.locator('.menu-item', { hasText: 'Paste as plain text' }).click();
+  await page.waitForTimeout(300);
+  let ph = await T(wr).locator('.wr-rich').innerHTML();
+  ok(/PLAINCHECK text/.test(ph) && !/<b>PLAINCHECK/.test(ph), 'Paste as plain text drops the formatting');
+  await T(wr).locator('.wr-rich').click({ button: 'right', position: { x: 300, y: 12 } });
+  await page.locator('.menu-item', { has: page.locator('.menu-label', { hasText: /^Paste$/ }) }).click();
+  await page.waitForTimeout(300);
+  ph = await T(wr).locator('.wr-rich').innerHTML();
+  ok(/<b[^>]*>PLAINCHECK<\/b>/.test(ph), 'the normal Paste keeps safe formatting' + (/<b[^>]*>PLAINCHECK/.test(ph) ? '' : ' [' + ph.slice(0, 300) + ']'));
+  await T(wr).locator('.wr-rich').click({ button: 'right', position: { x: 300, y: 12 } });
+  await page.locator('.menu-item', { hasText: 'Tile menu' }).hover();
+  ok(await page.locator('.menu.sub .menu-item', { hasText: 'Rename' }).count() > 0, 'the tile menu is still reachable from the right-click menu');
+  await page.keyboard.press('Escape');
+  await T(wr).locator('.tile-head button[aria-label="Tile menu"]').click();
+  await page.locator('.menu-item', { hasText: 'Change icon' }).click();
+  await page.locator('.emoji-input').fill('🧪');
+  await page.locator('.modal .btn.primary').first().click();
+  await page.waitForFunction((id) => document.querySelector(`.tile[data-tile="${id}"] .tile-icon`).textContent === '🧪', wr, { timeout: 4000 });
+  await settle(); await page.reload(); await page.waitForSelector(`.tile[data-tile="${wr}"] .tile-icon`);
+  ok((await T(wr).locator('.tile-icon').textContent()) === '🧪', 'a Writer can have its own icon, kept after a reload');
+
   // ======================================================================================== writer folder
   section('Writer folder: pages, sub-folders, drag, filter, search');
   await scratch('Notebook');
@@ -171,6 +220,20 @@ const section = (t) => console.log('\n# ' + t);
   await page.waitForTimeout(100);
   ok((await T(lib).locator('.lib-item.active, .lib-row.active').first().textContent()).includes('Meeting minutes'), 'renaming a page updates the list at once');
   await page.waitForTimeout(900); await settle();
+  // each page and folder can have its own icon
+  await T(lib).locator('.lib-item:not(.folder)', { hasText: 'Meeting minutes' }).locator('.lib-row').first().click({ button: 'right' });
+  await page.locator('.menu-item', { hasText: 'Change icon' }).click();
+  await page.locator('.emoji-input').fill('🍵');
+  await page.locator('.modal .btn.primary').first().click();
+  await page.waitForFunction((id) => [...document.querySelectorAll(`.tile[data-tile="${id}"] .lib-item:not(.folder) .lib-ico`)].some((e) => e.textContent === '🍵'), lib, { timeout: 4000 });
+  await T(lib).locator('.lib-item.folder > .lib-row').click({ button: 'right' });
+  await page.locator('.menu-item', { hasText: 'Change icon' }).click();
+  await page.locator('.emoji-input').fill('🚀');
+  await page.locator('.modal .btn.primary').first().click();
+  await page.waitForFunction((id) => document.querySelector(`.tile[data-tile="${id}"] .lib-item.folder > .lib-row .lib-ico`).textContent === '🚀', lib, { timeout: 4000 });
+  await T(lib).locator('.lib-item.folder > .lib-row').click(); await T(lib).locator('.lib-item.folder > .lib-row').click(); // close and open again: a custom folder icon stays
+  ok((await T(lib).locator('.lib-item.folder > .lib-row .lib-ico').textContent()) === '🚀', 'pages and folders can have their own icon (a folder keeps it when opened or closed)');
+  await settle();
   // search
   const hits = await page.evaluate(async () => (await HB.api.search('tea')).results.filter((x) => x.kind === 'page'));
   ok(hits.length === 1 && /^Meeting minutes/.test(hits[0].label) && !/</.test(hits[0].label), 'Ctrl+K finds text inside pages and shows the page title');

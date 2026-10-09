@@ -18,7 +18,7 @@
     doc(ctx, mode) { return S.entriesOf((ctx || this.ctx).id, 'doc').find((e) => (e.data || {}).mode === mode) || null; }
 
     // redraw only when what is shown changes, and never while you are typing
-    sig(ctx) { const m = this.mode(ctx), d = this.doc(ctx, m); return [m, ctx.settings.lang || '', ctx.settings.autorun !== false, d ? [d.id, d.a] : null]; }
+    sig(ctx) { const m = this.mode(ctx), d = this.doc(ctx, m); return [m, ctx.settings.lang || '', ctx.settings.autorun !== false, ctx.settings.icon || '', d ? [d.id, d.a] : null]; }
     keep() {
       const a = document.activeElement;
       const inside = a && a.closest && a.closest('.tile[data-tile="' + this.tileId + '"]') && a.matches('.wr-rich, .wr-ta, .wr-source, .wr-fi');
@@ -60,6 +60,9 @@
     }
 
     render(body, ctx) {
+      // each Writer may carry its own icon (settings.icon); shown in the tile header in place of the default
+      const ico = body.parentNode && body.parentNode.querySelector('.tile-head .tile-icon');
+      if (ico) ico.textContent = (ctx.settings.icon || '').trim() || this.meta.icon;
       const mode = this.mode(ctx);
       const row = this.doc(ctx, mode);
       this.status = h('span', { class: 'muted small wr-status', text: row ? 'Saved' : '' }); // rich text swaps in the editor's own
@@ -80,6 +83,7 @@
       const rich = E.rich({
         value: row ? row.a : '', readOnly: this.readOnly,
         onChange: (html) => this.saveSoon(html),
+        moreMenu: () => HB.board.tileMenu(this.tileId),
         upload: async (file, progress) => {
           const f = await HB.upload.one(file, ctx.id, progress);
           S.addFileRows([f]);
@@ -151,6 +155,11 @@
       const items = [
         { label: 'Mode', children: Object.entries(MODES).map(([k, v]) => ({ label: v, checked: k === mode,
           onClick: async () => { await this.flush(); this.save({ mode: k }, 'writer mode'); } })) },
+        { label: 'Change icon…', onClick: async () => {
+          const v = await HB.ui.form({ title: 'Icon for "' + (tile.title || 'this Writer') + '"', submit: 'Set icon',
+            fields: [{ name: 'icon', label: 'Icon', type: 'emoji', value: ctx.settings.icon || '', placeholder: this.meta.icon, hint: 'Leave it empty to use the default ' + this.meta.icon }] });
+          if (v) this.save({ icon: Array.from(v.icon).slice(0, 4).join('') }, 'tile icon');
+        } },
         { label: 'Download', children: [
           { label: mode === 'rich' ? 'Web page (.html)' : 'File', onClick: () => this.download(ctx, mode, false) },
           mode === 'rich' ? { label: 'Plain text (.txt)', onClick: () => this.download(ctx, mode, true) } : null,
@@ -183,7 +192,7 @@
       const named = tile.title && tile.title !== HB.typeInfo.writer.label; // a tile still called "Writer" gets the first line of its text as title
       const first = r && mode === 'rich' ? E.toText(r.a).split('\n')[0].slice(0, 60) : '';
       const page = await HB.safeCreate('entries', { tile_id: folder.id, kind: 'page', a: r ? r.a : '', b: (named ? tile.title : first || 'Untitled').slice(0, 120), num: 0,
-        position: siblings.reduce((m, x) => Math.max(m, x.position + 1), 0), data: mode === 'code' ? { t: 'code', lang: ctx.settings.lang || 'js' } : { t: 'page' } }, 'move into folder');
+        position: siblings.reduce((m, x) => Math.max(m, x.position + 1), 0), data: Object.assign(mode === 'code' ? { t: 'code', lang: ctx.settings.lang || 'js' } : { t: 'page' }, ctx.settings.icon ? { icon: ctx.settings.icon } : {}) }, 'move into folder');
       if (!page) return;
       HB.history.run('move into folder', () => {
         this.items('files').forEach((f) => S.update('files', f.id, { tile_id: folder.id }));

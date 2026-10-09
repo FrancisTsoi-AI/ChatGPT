@@ -40,13 +40,16 @@
     if (img && /^data:image\/(png|jpe?g|gif|webp);base64,[a-z0-9+/=\s]+$/i.test(u)) return u;
     return '';
   }
-  function cleanStyle(v) {
+  // column widths and row heights (set by dragging a table edge) are kept on table parts only
+  const SIZE_RULE = /^\d{1,4}(\.\d{1,2})?(px|%)$/;
+  const SIZED = new Set(['TABLE', 'TR', 'TD', 'TH']);
+  function cleanStyle(v, tag) {
     return String(v).split(';').map((d) => {
       const i = d.indexOf(':');
       if (i < 0) return '';
       const k = d.slice(0, i).trim().toLowerCase();
       const val = d.slice(i + 1).trim().replace(/\s*!important$/i, '');
-      const rule = STYLE_RULES[k];
+      const rule = (k === 'width' || k === 'height') && SIZED.has(tag) ? SIZE_RULE : STYLE_RULES[k];
       if (!rule || !val || val.length > 80 || !rule.test(val)) return '';
       return k + ': ' + val;
     }).filter(Boolean).join('; ');
@@ -85,7 +88,7 @@
       if (tag === 'LI' && n.hasAttribute('data-done')) el.setAttribute('data-done', '1');
       if (tag === 'TD' || tag === 'TH') ['colspan', 'rowspan'].forEach((a) => { const v = n.getAttribute(a); if (v && /^\d{1,2}$/.test(v)) el.setAttribute(a, v); });
       const st = n.getAttribute('style');
-      if (st) { const c = cleanStyle(st); if (c) el.setAttribute('style', (el.getAttribute('style') ? el.getAttribute('style') + '; ' : '') + c); }
+      if (st) { const c = cleanStyle(st, tag); if (c) el.setAttribute('style', (el.getAttribute('style') ? el.getAttribute('style') + '; ' : '') + c); }
       cleanInto(n, el);
       out.appendChild(el);
     });
@@ -1015,11 +1018,21 @@
     });
     const setBlockExact = (tag) => { back(); document.execCommand('formatBlock', false, tag); keepSel(); changed(); };
 
-    // paste: keep formatting but only what is safe; images become uploads; a pasted address links the selection
+    // paste: keep formatting but only what is safe; images become uploads; a pasted address links the selection.
+    // Ctrl/⌘+Shift+V and the right-click menu paste plain text instead.
+    let plainUntil = 0;
+    const pastePlain = (text) => { keepSel(); exec('insertText', String(text).replace(/\r\n?/g, '\n')); };
+    const pasteHtml = (html) => { keepSel(); back(); document.execCommand('insertHTML', false, sanitizeToString(html)); changed(); };
+    body.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === 'v') plainUntil = Date.now() + 800;
+    });
     body.addEventListener('paste', (e) => {
       if (readOnly) return;
       const dt = e.clipboardData;
       if (!dt) return;
+      const plain = Date.now() < plainUntil;
+      plainUntil = 0;
+      if (plain && dt.getData('text/plain')) { e.preventDefault(); pastePlain(dt.getData('text/plain')); return; }
       const imgs = Array.from(dt.files || []).filter((f) => /^image\//.test(f.type));
       if (imgs.length) { e.preventDefault(); imgs.forEach((f) => addImage(f)); return; }
       const text = (dt.getData('text/plain') || '').trim();
@@ -1029,8 +1042,96 @@
         changed(); return;
       }
       const html = dt.getData('text/html');
-      if (html) { e.preventDefault(); keepSel(); back(); document.execCommand('insertHTML', false, sanitizeToString(html)); changed(); }
+      if (html) { e.preventDefault(); pasteHtml(html); }
     });
+    /** Menu paste: read the clipboard ourselves (the browser may ask once for permission). */
+    const pasteFromClipboard = async (plain) => {
+      try {
+        if (!plain && navigator.clipboard.read) {
+          for (const item of await navigator.clipboard.read()) {
+            if (item.types.includes('text/html')) { pasteHtml(await (await item.getType('text/html')).text()); return; }
+            if (item.types.includes('text/plain')) { pastePlain(await (await item.getType('text/plain')).text()); return; }
+          }
+          return;
+        }
+        pastePlain(await navigator.clipboard.readText());
+      } catch (err) { HB.ui.toast('The browser blocked clipboard access. Press ' + (plain ? 'Ctrl+Shift+V' : 'Ctrl+V') + ' instead.', { type: 'error' }); }
+    };
+    // right-click: our own menu (the browser's has no "paste as plain text" for a page like this); `opts.moreMenu()` adds items (the tile menu)
+    body.addEventListener('contextmenu', (e) => {
+      if (readOnly) return; // shared view: the browser's own menu
+      e.preventDefault(); // also tells the tile (which would show its own menu) to stand back
+      keepSel();
+      const hasSel = !!saved && !saved.collapsed;
+      const t = cellInfo();
+      const tbl = (label, k, danger) => ({ label, danger, onClick: () => tableOp(k) });
+      const items = [
+        { label: 'Cut', hint: 'Ctrl+X', disabled: !hasSel, onClick: () => exec('cut') },
+        { label: 'Copy', hint: 'Ctrl+C', disabled: !hasSel, onClick: () => { back(); document.execCommand('copy'); } },
+        { label: 'Paste', hint: 'Ctrl+V', onClick: () => pasteFromClipboard(false) },
+        { label: 'Paste as plain text', hint: 'Ctrl+Shift+V', onClick: () => pasteFromClipboard(true) },
+        { label: 'Select all', hint: 'Ctrl+A', onClick: () => { back(true); const r = document.createRange(); r.selectNodeContents(body); sel().removeAllRanges(); sel().addRange(r); keepSel(); } },
+      ];
+      if (t) items.push({ sep: true }, { label: 'Table', children: [tbl('Row above', 'rowBefore'), tbl('Row below', 'rowAfter'), tbl('Column left', 'colBefore'), tbl('Column right', 'colAfter'),
+        tbl('Header row on/off', 'header'), tbl('Delete row', 'delRow', true), tbl('Delete column', 'delCol', true), tbl('Delete table', 'delTable', true)] });
+      const more = opts.moreMenu ? opts.moreMenu() : [];
+      if (more && more.length) items.push({ sep: true }, { label: 'Tile menu', children: more });
+      HB.ui.menu(e.clientX, e.clientY, items);
+    });
+
+    // tables: drag the right edge of a cell to set its column width, the bottom edge to set the row height.
+    // Sizes are inline px on the cells (width) and rows (height), which the sanitiser keeps, so they are saved with the text.
+    if (!readOnly) {
+      const EDGE = 5;
+      let drag = null;
+      const tableCells = (table) => Array.from(table.rows).flatMap((r) => Array.from(r.cells));
+      const edgeAt = (e) => { // which table edge is under the pointer? → { kind: 'col'|'row', table, x|y } or null
+        const cell = e.target.closest && e.target.closest('td,th');
+        if (!cell || !body.contains(cell)) return null;
+        const r = cell.getBoundingClientRect(), t = e.pointerType === 'touch' ? EDGE * 2 : EDGE, table = cell.closest('table');
+        if (Math.abs(e.clientX - r.right) <= t) return { kind: 'col', table, x: r.right };
+        if (Math.abs(e.clientX - r.left) <= t && cell.previousElementSibling) return { kind: 'col', table, x: r.left };
+        if (Math.abs(e.clientY - r.bottom) <= t) return { kind: 'row', table, y: r.bottom };
+        if (Math.abs(e.clientY - r.top) <= t && cell.parentElement.previousElementSibling) return { kind: 'row', table, y: r.top };
+        return null;
+      };
+      const cursor = (kind) => { body.classList.toggle('wr-col-resize', kind === 'col'); body.classList.toggle('wr-row-resize', kind === 'row'); };
+      body.addEventListener('pointermove', (e) => {
+        if (drag) {
+          if (drag.kind === 'col') drag.items.forEach((o) => { o.el.style.width = Math.max(24, Math.round(o.size + e.clientX - drag.at)) + 'px'; });
+          else drag.items.forEach((o) => { o.el.style.height = Math.max(20, Math.round(o.size + e.clientY - drag.at)) + 'px'; });
+          return;
+        }
+        const t = edgeAt(e);
+        cursor(t && t.kind);
+      });
+      body.addEventListener('pointerleave', () => { if (!drag) cursor(null); });
+      body.addEventListener('pointerdown', (e) => {
+        if (e.button) return;
+        const t = edgeAt(e);
+        if (!t) return;
+        let items;
+        if (t.kind === 'col') { // every cell whose right edge sits on the dragged line (also right with merged cells)
+          items = tableCells(t.table).map((c) => ({ el: c, r: c.getBoundingClientRect() })).filter((o) => Math.abs(o.r.right - t.x) <= 2).map((o) => ({ el: o.el, size: o.r.width }));
+        } else {
+          items = Array.from(t.table.rows).map((tr) => ({ el: tr, r: tr.getBoundingClientRect() })).filter((o) => Math.abs(o.r.bottom - t.y) <= 2).map((o) => ({ el: o.el, size: o.r.height }));
+        }
+        if (!items.length) return;
+        e.preventDefault(); // no text selection while dragging
+        drag = { kind: t.kind, at: t.kind === 'col' ? e.clientX : e.clientY, items };
+        body.setPointerCapture(e.pointerId);
+        cursor(t.kind);
+      });
+      const endDrag = (e) => {
+        if (!drag) return;
+        drag = null;
+        try { body.releasePointerCapture(e.pointerId); } catch (err) { /* already released */ }
+        cursor(null);
+        changed();
+      };
+      body.addEventListener('pointerup', endDrag);
+      body.addEventListener('pointercancel', endDrag);
+    }
     body.addEventListener('drop', (e) => {
       const imgs = Array.from((e.dataTransfer && e.dataTransfer.files) || []).filter((f) => /^image\//.test(f.type));
       if (!imgs.length || readOnly) return;

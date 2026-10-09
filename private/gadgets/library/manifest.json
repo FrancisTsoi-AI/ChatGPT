@@ -1,6 +1,6 @@
 {
   "type": "library",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "label": "Writer folder",
   "icon": "🗂️",
   "hint": "A folder of many documents, with sub-folders",
